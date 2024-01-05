@@ -10,6 +10,7 @@
 #include "examples/pd_plus_controller.h"
 #include "examples/disturbance_system.h"
 #include <drake/common/fmt_eigen.h>
+#include <drake/common/text_logging.h>
 #include <drake/systems/primitives/discrete_time_delay.h>
 #include <drake/visualization/visualization_config_functions.h>
 
@@ -28,7 +29,11 @@ using pd_plus::PdPlusController;
 //using DisturbanceGenerator;
 
 void TrajOptExample::RunExample(const std::string options_file,
-                                const bool test) const {
+                                const std::vector<VectorXd> trajectory,
+                                const std::vector<VectorXd> whole_trajectory,
+                                const double nominal_update_dt,
+                                const bool test,
+                                const bool time_varying_cost) const {
   // Load parameters from file
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
@@ -50,21 +55,29 @@ void TrajOptExample::RunExample(const std::string options_file,
 
   if (options.mpc) {
     // Run a simulation that uses the optimizer as a model predictive controller
-    RunModelPredictiveControl(options);
+    RunModelPredictiveControl(options, trajectory, whole_trajectory,
+        nominal_update_dt, time_varying_cost);
   } else {
     // Solve a single instance of the optimization problem and play back the
     // result on the visualizer
-    SolveTrajectoryOptimization(options);
+    SolveTrajectoryOptimization(options, trajectory, time_varying_cost);
   }
 }
 
 void TrajOptExample::RunModelPredictiveControl(
-    const TrajOptExampleParams& options) const {
+    const TrajOptExampleParams& options,
+    const std::vector<VectorXd> trajectory,
+    const std::vector<VectorXd> whole_trajectory,
+    const double nominal_update_dt,
+    const bool time_varying_cost) const {
   // Perform a full solve to convergence (as defined by YAML parameters) to
   // warm-start the first MPC iteration. Subsequent MPC iterations will be
   // warm-started based on the prior MPC iteration.
   TrajectoryOptimizerSolution<double> initial_solution =
-      SolveTrajectoryOptimization(options);
+      SolveTrajectoryOptimization(options, trajectory, time_varying_cost);
+
+  drake::log()->info("Press enter to continue with MPC");
+  std::getchar();
 
   // Set up the system diagram for the simulator
   DiagramBuilder<double> builder;
@@ -95,7 +108,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Define the optimization problem
   ProblemDefinition opt_prob;
-  SetProblemDefinition(options, plant, &opt_prob);
+  SetProblemDefinition(options, plant, &opt_prob, trajectory, time_varying_cost);
 
   // Set MPC-specific solver parameters
   SolverParameters solver_params;
@@ -106,7 +119,8 @@ void TrajOptExample::RunModelPredictiveControl(
   const double replan_period = 1. / options.controller_frequency;
   auto controller = builder.AddSystem<ModelPredictiveController>(
       ctrl_diagram.get(), &ctrl_plant, opt_prob, initial_solution,
-      solver_params, replan_period);
+      solver_params, replan_period, whole_trajectory, nominal_update_dt,
+      time_varying_cost);
 
   // Create an interpolator to send samples from the optimal trajectory at a
   // faster rate
@@ -176,7 +190,15 @@ void TrajOptExample::RunModelPredictiveControl(
       diagram->GetMutableSubsystemContext(plant, diagram_context.get());
 
   // Set up the simulation
-  plant.SetPositions(&plant_context, options.q_init);
+  //plant.SetPositions(&plant_context, options.q_init);
+  std::cout<<"Setting object pose from yaml file.";
+  std::cout<<"\tobs: "<<options.q_init[11]<<", "<<options.q_init[12]<<", ";
+  std::cout<<options.q_init[13]<<std::endl;
+  auto mixed_q_init = trajectory[0];
+  mixed_q_init[11] = options.q_init[11];
+  mixed_q_init[12] = options.q_init[12];
+  mixed_q_init[13] = options.q_init[13];
+  plant.SetPositions(&plant_context, mixed_q_init);
   plant.SetVelocities(&plant_context, options.v_init);
   drake::systems::Simulator<double> simulator(*diagram,
                                               std::move(diagram_context));
@@ -202,6 +224,163 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Print profiling info
   std::cout << TableOfAverages() << std::endl;
+}
+
+TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
+    const TrajOptExampleParams& options,
+    const std::vector<VectorXd> trajectory,
+    const bool time_varying_cost) const {
+  // Create a system model
+  // N.B. we need a whole diagram, including scene_graph, to handle contact
+  DiagramBuilder<double> builder;
+  MultibodyPlantConfig config;
+  config.time_step = options.time_step;
+  auto [plant, scene_graph] = AddMultibodyPlant(config, &builder);
+  CreatePlantModel(&plant);
+  plant.Finalize();
+  const int nq = plant.num_positions();
+  const int nv = plant.num_velocities();
+  auto diagram = builder.Build();
+
+  // Check sizes of things we load from YAML
+  std::cout<<"options.q_init.size(): "<<options.q_init.size()<<std::endl;
+  std::cout<<"nq: "<<nq<<std::endl;
+  DRAKE_DEMAND(options.q_init.size() == nq);
+  DRAKE_DEMAND(options.v_init.size() == nv);
+  DRAKE_DEMAND(options.q_nom_start.size() == nq);
+  DRAKE_DEMAND(options.q_nom_end.size() == nq);
+  DRAKE_DEMAND(options.q_guess.size() == nq);
+  DRAKE_DEMAND(options.Qq.size() == nq);
+  DRAKE_DEMAND(options.Qv.size() == nv);
+  DRAKE_DEMAND(options.R.size() == nv);
+  DRAKE_DEMAND(options.Qfq.size() == nq);
+  DRAKE_DEMAND(options.Qfv.size() == nv);
+
+  // Define the optimization problem
+  ProblemDefinition opt_prob;
+  SetProblemDefinition(options, plant, &opt_prob, trajectory, time_varying_cost);
+
+  // Set our solver parameters
+  SolverParameters solver_params;
+  SetSolverParameters(options, &solver_params);
+
+  // Establish an initial guess
+  std::vector<VectorXd> q_guess = trajectory;
+  /*
+  std::vector<VectorXd> q_guess = MakeLinearInterpolation(
+      opt_prob.q_init, options.q_guess, opt_prob.num_steps + 1);
+  */
+  NormalizeQuaternions(plant, &q_guess);
+
+  // N.B. This should always be the case, and is checked by the solver. However,
+  // sometimes floating point + normalization stuff makes q_guess != q_init, so
+  // we'll just doubly enforce that here
+  //DRAKE_DEMAND((q_guess[0] - opt_prob.q_init).norm() < 1e-8);
+  q_guess[0] = opt_prob.q_init;
+
+  // Visualize the target trajectory and initial guess, if requested
+  if (options.play_target_trajectory) {
+    PlayBackTrajectory(opt_prob.q_nom, options.time_step);
+  }
+  if (options.play_initial_guess) {
+    std::cout<<"Playing back initial guess."<<std::endl;
+    PlayBackTrajectory(q_guess, options.time_step);
+  }
+
+  // Solve the optimzation problem
+  TrajectoryOptimizer<double> optimizer(diagram.get(), &plant, opt_prob,
+                                        solver_params, time_varying_cost);
+  TrajectoryOptimizerSolution<double> solution;
+  TrajectoryOptimizerStats<double> stats;
+  ConvergenceReason reason;
+  SolverFlag status = optimizer.Solve(q_guess, &solution, &stats, &reason);
+  if (status == SolverFlag::kSuccess) {
+    std::cout << "Solved in " << stats.solve_time << " seconds." << std::endl;
+  } else if (status == SolverFlag::kMaxIterationsReached) {
+    std::cout << "Maximum iterations reached in " << stats.solve_time
+              << " seconds." << std::endl;
+  } else {
+    std::cout << "Solver failed!" << std::endl;
+  }
+
+  std::cout << "Convergence reason: "
+            << DecodeConvergenceReasons(reason) + ".\n";
+
+  // Report maximum torques on all DoFs
+  VectorXd tau_max = VectorXd::Zero(nv);
+  VectorXd abs_tau_t = VectorXd::Zero(nv);
+  for (int t = 0; t < options.num_steps; ++t) {
+    abs_tau_t = solution.tau[t].cwiseAbs();
+    for (int i = 0; i < nv; ++i) {
+      if (abs_tau_t(i) > tau_max(i)) {
+        tau_max(i) = abs_tau_t(i);
+      }
+    }
+  }
+  std::cout << std::endl;
+  std::cout << fmt::format("Max torques: {}",
+                           drake::fmt_eigen(tau_max.transpose()))
+            << std::endl;
+
+  // Report maximum actuated and unactuated torques
+  // TODO(vincekurtz): deal with the fact that B is not well-defined for some
+  // systems, such as the block pusher and floating box examples.
+  const MatrixXd B = plant.MakeActuationMatrix();
+  double tau_max_unactuated = 0;
+  double tau_max_actuated = 0;
+  for (int i = 0; i < nv; ++i) {
+    if (B.row(i).sum() == 0) {
+      if (tau_max(i) > tau_max_unactuated) {
+        tau_max_unactuated = tau_max(i);
+      }
+    } else {
+      if (tau_max(i) > tau_max_actuated) {
+        tau_max_actuated = tau_max(i);
+      }
+    }
+  }
+
+  std::cout << std::endl;
+  std::cout << "Max actuated torque   : " << tau_max_actuated << std::endl;
+  std::cout << "Max unactuated torque : " << tau_max_unactuated << std::endl;
+
+  // Report desired and final state
+  std::cout << std::endl;
+  std::cout << fmt::format("q_nom[T] : {}",
+                           drake::fmt_eigen(
+                               opt_prob.q_nom[options.num_steps].transpose()))
+            << std::endl;
+  std::cout << fmt::format(
+                   "q[T]     : {}",
+                   drake::fmt_eigen(solution.q[options.num_steps].transpose()))
+            << std::endl;
+  std::cout << std::endl;
+  std::cout << fmt::format("v_nom[T] : {}",
+                           drake::fmt_eigen(
+                               opt_prob.v_nom[options.num_steps].transpose()))
+            << std::endl;
+  std::cout << fmt::format(
+                   "v[T]     : {}",
+                   drake::fmt_eigen(solution.v[options.num_steps].transpose()))
+            << std::endl;
+
+  // Print speed profiling info
+  std::cout << std::endl;
+  std::cout << TableOfAverages() << std::endl;
+
+  // Save stats to CSV for later plotting
+  if (options.save_solver_stats_csv) {
+    stats.SaveToCsv("solver_stats.csv");
+  }
+
+  // Play back the result on the visualizer
+  if (options.play_optimal_trajectory) {
+    PlayBackTrajectory(solution.q, options.time_step);
+    drake::log()->info(fmt::format("The warmstart trajectory can be viewed at {}",
+                                    meshcat_->web_url()));
+  }
+
+  return solution;
 }
 
 TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
@@ -394,6 +573,70 @@ void TrajOptExample::PlayBackTrajectory(const std::vector<VectorXd>& q,
 
 void TrajOptExample::SetProblemDefinition(const TrajOptExampleParams& options,
                                           const MultibodyPlant<double>& plant,
+                                          ProblemDefinition* opt_prob,
+                                          std::vector<VectorXd> nom_trajectory,
+                                          const bool time_varying_cost) const {
+  opt_prob->num_steps = options.num_steps;
+
+  // Initial state
+  //opt_prob->q_init = options.q_init;
+  opt_prob->q_init = nom_trajectory[0];
+  opt_prob->v_init = options.v_init;
+
+  // Cost weights
+  opt_prob->Qq = options.Qq.asDiagonal();
+  opt_prob->Qv = options.Qv.asDiagonal();
+  opt_prob->Qf_q = options.Qfq.asDiagonal();
+  opt_prob->Qf_v = options.Qfv.asDiagonal();
+  opt_prob->R = options.R.asDiagonal();
+
+  // Check which DoFs the cost is updated relative to the initial condition for
+  VectorX<bool> q_nom_relative = options.q_nom_relative_to_q_init;
+  if (q_nom_relative.size() == 0) {
+    // If not specified, assume the nominal trajectory is not relative to the
+    // initial conditions.
+    q_nom_relative = VectorX<bool>::Constant(options.q_init.size(), false);
+  }
+
+  // Target state at each timestep
+  /*
+  VectorXd q_nom_start = options.q_nom_start;
+  VectorXd q_nom_end = options.q_nom_end;
+  q_nom_start += q_nom_relative.cast<double>().cwiseProduct(options.q_init);
+  q_nom_end += q_nom_relative.cast<double>().cwiseProduct(options.q_init);
+  opt_prob->q_nom =
+      MakeLinearInterpolation(q_nom_start, q_nom_end, options.num_steps + 1);
+  */
+  if (time_varying_cost) {
+    opt_prob->q_nom = nom_trajectory;
+  }
+  else {
+    opt_prob->q_nom =
+        MakeLinearInterpolation(nom_trajectory.back(), nom_trajectory.back(),
+            options.num_steps + 1);
+  }
+
+  opt_prob->v_nom.push_back(opt_prob->v_init);
+  for (int t = 1; t <= options.num_steps; ++t) {
+    if (options.q_init.size() == options.v_init.size()) {
+      // No quaternion DoFs, so compute v_nom from q_nom
+      opt_prob->v_nom.push_back((opt_prob->q_nom[t] - opt_prob->q_nom[t - 1]) /
+                                options.time_step);
+    } else {
+      // Set v_nom = v_init for systems with quaternion DoFs
+      // TODO(vincekurtz): enable better specification of v_nom for
+      // floating-base systems
+      opt_prob->v_nom.push_back(opt_prob->v_init);
+    }
+  }
+
+  // Normalize quaternions in the reference and initial condition
+  NormalizeQuaternions(plant, &opt_prob->q_nom);
+  NormalizeQuaternions(plant, &opt_prob->q_init);
+}
+
+void TrajOptExample::SetProblemDefinition(const TrajOptExampleParams& options,
+                                          const MultibodyPlant<double>& plant,
                                           ProblemDefinition* opt_prob) const {
   opt_prob->num_steps = options.num_steps;
 
@@ -442,6 +685,7 @@ void TrajOptExample::SetProblemDefinition(const TrajOptExampleParams& options,
   NormalizeQuaternions(plant, &opt_prob->q_nom);
   NormalizeQuaternions(plant, &opt_prob->q_init);
 }
+
 
 void TrajOptExample::SetSolverParameters(
     const TrajOptExampleParams& options,

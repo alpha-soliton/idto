@@ -19,6 +19,7 @@
 #include <drake/systems/analysis/simulator.h>
 #include <drake/systems/framework/diagram_builder.h>
 
+
 namespace idto {
 namespace examples {
 
@@ -69,7 +70,11 @@ class TrajOptExample {
    *   - play_optimal_trajectory = false
    *   - num_threads = 1; */
   void RunExample(const std::string options_file,
-                  const bool test = false) const;
+                  const std::vector<VectorXd> trajectory,
+                  const std::vector<VectorXd> whole_trajectory,
+                  const double nominal_update_dt,
+                  const bool test = false,
+                  const bool time_varying_cost = false) const;
 
   /**
    * Solve the optimization problem, as defined by the parameters in the given
@@ -80,6 +85,11 @@ class TrajOptExample {
    * @return TrajectoryOptimizerSolution<double> the optimal trajectory
    */
   TrajectoryOptimizerSolution<double> SolveTrajectoryOptimization(
+      const TrajOptExampleParams& options,
+      const std::vector<VectorXd> trajectory,
+      const bool time_varying_cost) const;
+
+  TrajectoryOptimizerSolution<double> SolveTrajectoryOptimization(
       const TrajOptExampleParams& options) const;
 
   /**
@@ -88,7 +98,11 @@ class TrajOptExample {
    * @param options YAML options, incluidng cost function definition, solver
    * parameters, etc.
    */
-  void RunModelPredictiveControl(const TrajOptExampleParams& options) const;
+  void RunModelPredictiveControl(const TrajOptExampleParams& options,
+                                 const std::vector<VectorXd> trajectory,
+                                 const std::vector<VectorXd> whole_trajectory,
+                                 const double nominal_update_dt,
+                                 const bool time_varying_cost) const;
 
   /**
    * Set an optimization problem from example options which were loaded from
@@ -98,6 +112,12 @@ class TrajOptExample {
    * @param plant model of the system that we're optimizing over
    * @param opt_prob the problem definition (cost, initital state, etc)
    */
+  void SetProblemDefinition(const TrajOptExampleParams& options,
+                            const MultibodyPlant<double>& plant,
+                            ProblemDefinition* opt_prob,
+                            std::vector<VectorXd> nom_trajectory,
+                            const bool time_varying_cost) const;
+
   void SetProblemDefinition(const TrajOptExampleParams& options,
                             const MultibodyPlant<double>& plant,
                             ProblemDefinition* opt_prob) const;
