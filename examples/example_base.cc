@@ -23,7 +23,9 @@ namespace idto {
 namespace examples {
 
 using drake::examples::acrobot::AcrobotStateSender;
+using drake::examples::acrobot::AcrobotCommandSender;
 using drake::lcmt_acrobot_x;
+using drake::lcmt_acrobot_u;
 using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
@@ -173,6 +175,15 @@ void TrajOptExample::RunModelPredictiveControl(
   builder.Connect(state_sender->get_output_port(0),
                   state_pub->get_input_port());
   builder.Connect(plant.get_state_output_port(), state_sender->get_input_port(0));
+
+  // Add lcm command publisher.
+  auto command_pub = builder.AddSystem(
+      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_acrobot_u>(channel_u, lcm));
+  auto command_sender = builder.AddSystem<AcrobotCommandSender>();
+  builder.Connect(command_sender->get_output_port(),
+                  command_pub->get_input_port());
+  builder.Connect(pd->get_control_output_port(),
+                  command_sender->get_input_port());
 
   // Compile the diagram
   auto diagram = builder.Build();
