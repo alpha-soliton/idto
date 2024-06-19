@@ -207,6 +207,10 @@ void TrajOptExample::RunModelPredictiveControl(
   simulator.set_target_realtime_rate(options.sim_realtime_rate);
   simulator.Initialize();
 
+  std::string message_before_sim;
+  std::cout<<"Starting simulation. Press Enter when ready.";
+  std::getline(std::cin, message_before_sim);
+
   // Run the simulation, recording the result for later playback in MeshCat
   meshcat_->StartRecording();
   simulator.AdvanceTo(options.sim_time);
