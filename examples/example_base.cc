@@ -14,22 +14,28 @@
 #include <drake/systems/primitives/discrete_time_delay.h>
 #include <drake/visualization/visualization_config_functions.h>
 #include <drake/lcmt_acrobot_u.hpp>
+#include <drake/lcmt_acrobot_u_extended.hpp>
 #include <drake/lcmt_acrobot_x.hpp>
+#include <drake/lcmt_acrobot_x_extended.hpp>
 #include <drake/systems/lcm/lcm_interface_system.h>
 #include <drake/systems/lcm/lcm_publisher_system.h>
 #include <drake/systems/lcm/lcm_subscriber_system.h>
+#include <drake/systems/primitives/demultiplexer.h>
 
 namespace idto {
 namespace examples {
 
-using drake::examples::acrobot::AcrobotStateSender;
-using drake::examples::acrobot::AcrobotCommandSender;
+using drake::examples::acrobot::AcrobotStateExtendedSender;
+using drake::examples::acrobot::AcrobotCommandExtendedSender;
 using drake::lcmt_acrobot_x;
+using drake::lcmt_acrobot_x_extended;
 using drake::lcmt_acrobot_u;
+using drake::lcmt_acrobot_u_extended;
 using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
 using drake::systems::DiscreteTimeDelay;
+using drake::systems::Demultiplexer;
 using drake::visualization::AddDefaultVisualization;
 using Eigen::Matrix4d;
 using mpc::Interpolator;
@@ -165,25 +171,40 @@ void TrajOptExample::RunModelPredictiveControl(
   builder.Connect(plant.get_state_output_port(),
                   controller->get_state_input_port());
 
+  // Add Demultiplexer for State/Command Sender.
+  auto demux = builder.AddSystem<Demultiplexer>(nq+nv, nq);
+  builder.Connect(interpolator->get_state_output_port(),
+                  demux->get_input_port());
+
   // Add lcm state publisher.
   const std::string channel_x = "acrobot_xhat";
   const std::string channel_u = "acrobot_u";
   auto lcm = builder.AddSystem<drake::systems::lcm::LcmInterfaceSystem>();
   auto state_pub = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_acrobot_x>(channel_x, lcm));
-  auto state_sender = builder.AddSystem<AcrobotStateSender>();
+      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_acrobot_x_extended>(channel_x, lcm));
+  auto state_sender = builder.AddSystem<AcrobotStateExtendedSender>();
   builder.Connect(state_sender->get_output_port(0),
                   state_pub->get_input_port());
   builder.Connect(plant.get_state_output_port(), state_sender->get_input_port(0));
+  builder.Connect(demux->get_output_port(0),
+                  state_sender->get_input_port(1));
+  builder.Connect(demux->get_output_port(1),
+                  state_sender->get_input_port(2));
+  builder.Connect(interpolator->get_control_output_port(),
+                  state_sender->get_input_port(3));
 
   // Add lcm command publisher.
   auto command_pub = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_acrobot_u>(channel_u, lcm));
-  auto command_sender = builder.AddSystem<AcrobotCommandSender>();
+      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_acrobot_u_extended>(channel_u, lcm));
+  auto command_sender = builder.AddSystem<AcrobotCommandExtendedSender>();
   builder.Connect(command_sender->get_output_port(),
                   command_pub->get_input_port());
   builder.Connect(pd->get_control_output_port(),
-                  command_sender->get_input_port());
+                  command_sender->get_input_port(0));
+  builder.Connect(demux->get_output_port(0),
+                  command_sender->get_input_port(1));
+  builder.Connect(demux->get_output_port(1),
+                  command_sender->get_input_port(2));
 
   // Compile the diagram
   auto diagram = builder.Build();
