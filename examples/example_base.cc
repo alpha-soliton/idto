@@ -21,12 +21,20 @@
 #include <drake/systems/lcm/lcm_publisher_system.h>
 #include <drake/systems/lcm/lcm_subscriber_system.h>
 #include <drake/systems/primitives/demultiplexer.h>
+#include <drake/systems/sensors/image_to_lcm_image_array_t.h>
+#include <drake/systems/sensors/rgbd_sensor.h>
+#include <drake/systems/sensors/sim_rgbd_sensor.h>
 
 namespace idto {
 namespace examples {
 
 using drake::examples::acrobot::AcrobotStateExtendedSender;
 using drake::examples::acrobot::AcrobotCommandExtendedSender;
+using drake::geometry::render::ClippingRange;
+using drake::geometry::render::ColorRenderCamera;
+using drake::geometry::render::DepthRange;
+using drake::geometry::render::DepthRenderCamera;
+using drake::geometry::render::RenderCameraCore;
 using drake::lcmt_acrobot_x;
 using drake::lcmt_acrobot_x_extended;
 using drake::lcmt_acrobot_u;
@@ -34,6 +42,7 @@ using drake::lcmt_acrobot_u_extended;
 using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
+using drake::systems::sensors::CameraInfo;
 using drake::systems::DiscreteTimeDelay;
 using drake::systems::Demultiplexer;
 using drake::visualization::AddDefaultVisualization;
@@ -205,6 +214,16 @@ void TrajOptExample::RunModelPredictiveControl(
                   command_sender->get_input_port(1));
   builder.Connect(demux->get_output_port(1),
                   command_sender->get_input_port(2));
+
+  // Add RGBD camera.
+  const RenderCameraCore core("dummy_renderer", CameraInfo(320, 240, 0.75),
+      ClippingRange{10, 20}, {});
+  const auto color = ColorRenderCamera(core, true);
+  const auto depth = DepthRenderCamera(core, DepthRange{11.5, 13.5})};
+  const auto frame_p = plant.get_world_frame();
+  const auto X_PB = RigidTransformd(Vector3d(-0.5, 0.5, 0.75));
+  builder.AddSystem(SimRgbdSensor("main_camera", frame_p, 125, X_PB,
+        color, depth));
 
   // Compile the diagram
   auto diagram = builder.Build();
