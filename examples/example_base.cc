@@ -43,10 +43,12 @@ using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
 using drake::systems::sensors::CameraInfo;
+using drake::systems::sensors::internal::SimRgbdSensor;
 using drake::systems::DiscreteTimeDelay;
 using drake::systems::Demultiplexer;
 using drake::visualization::AddDefaultVisualization;
 using Eigen::Matrix4d;
+using Eigen::Vector3d;
 using mpc::Interpolator;
 using mpc::ModelPredictiveController;
 using pd_plus::PdPlusController;
@@ -57,7 +59,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabun/idto/examples/acrobot/acrobot.yaml", {}, default_options);
+          "/home/manabu-nishiura/idto/examples/acrobot/acrobot.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -219,8 +221,8 @@ void TrajOptExample::RunModelPredictiveControl(
   const RenderCameraCore core("dummy_renderer", CameraInfo(320, 240, 0.75),
       ClippingRange{10, 20}, {});
   const auto color = ColorRenderCamera(core, true);
-  const auto depth = DepthRenderCamera(core, DepthRange{11.5, 13.5})};
-  const auto frame_p = plant.get_world_frame();
+  const auto depth = DepthRenderCamera(core, DepthRange{11.5, 13.5});
+  const auto frame_p = plant.world_frame();
   const auto X_PB = RigidTransformd(Vector3d(-0.5, 0.5, 0.75));
   builder.AddSystem(SimRgbdSensor("main_camera", frame_p, 125, X_PB,
         color, depth));
@@ -230,7 +232,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Save diagram for debuggin purpose.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabun/idto/diagram.dot");
+  diagram_file.open("/home/manabu-nishiura/idto/diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 
