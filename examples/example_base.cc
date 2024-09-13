@@ -30,7 +30,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          idto::FindIdtoResourceOrThrow(options_file), {}, default_options);
+          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -173,6 +173,10 @@ void TrajOptExample::RunModelPredictiveControl(
   simulator.AdvanceTo(options.sim_time);
   meshcat_->StopRecording();
   meshcat_->PublishRecording();
+
+  std::string message;
+  std::cout<<"Waiting meshcat to publish recording.";
+  std::getline(std::cin, message);
 
   if (options.save_mpc_result_as_static_html) {
     std::ofstream data_file;

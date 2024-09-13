@@ -1,0 +1,23 @@
+# -*- python -*-
+
+package(default_visibility = ["//visibility:public"])
+
+load("//tools/lint:lint.bzl", "add_lint_tests")
+
+cc_binary(
+    name = "simple_maze",
+    srcs = ["simple_maze.cc"],
+    data = [
+        "//examples/simple_maze:simple_maze.yaml",
+        "//examples:models",
+    ],
+    deps = [
+        "//examples:example_base",
+        "//utils:find_resource",
+        "@drake//multibody/parsing",
+        "@drake//multibody/plant",
+        "@gflags"
+    ],
+)
+
+add_lint_tests()
