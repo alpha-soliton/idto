@@ -44,7 +44,7 @@ class DisturbanceGenerator : public LeafSystem<double> {
     this->DeclareDiscreteState(1);
   }
 
-  double generate_random_force() {
+  double generate_random_force() const {
     return dis(gen);
   }
 
@@ -66,7 +66,8 @@ class DisturbanceGenerator : public LeafSystem<double> {
       DiscreteValues<double>* discrete_state) const {
     const Vector3<double> tau(0.0, 0.0, 0.0);
     auto random_fy = discrete_state->get_mutable_value(0);
-    random_fy(0) = 1.0; // dis(gen)
+    double random_fy_value = generate_random_force();
+    random_fy(0) = random_fy_value;
     //const Vector3<double> force(0.0, random_fy(0), 0.0);
     //random_force = SpatialForce<double>(tau, force);
 
@@ -75,8 +76,8 @@ class DisturbanceGenerator : public LeafSystem<double> {
   const MultibodyPlant<double>* plant_{nullptr};
   const double force_mag_;
   const double period_{0.0};
-  std::mt19937 gen;
-  std::uniform_real_distribution<> dis;
+  mutable std::mt19937 gen;
+  mutable std::uniform_real_distribution<> dis;
   //SpatialForce<double> random_force;
 };
 
