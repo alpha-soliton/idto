@@ -32,6 +32,18 @@ idto_cc_shared_library(
 )
 
 idto_cc_shared_library(
+    name = "disturbance_system",
+    srcs = ["disturbance_system.cc"],
+    deps = [
+        "@drake//multibody/plant:externally_applied_spatial_force",
+        "@drake//multibody/tree",
+        "@drake//multibody/plant",
+        "@drake//systems/framework:leaf_system",
+        "@drake//systems/framework:vector",
+    ],
+)
+
+idto_cc_shared_library(
     name = "example_base",
     srcs = ["example_base.cc"],
     hdrs = ["example_base.h"],

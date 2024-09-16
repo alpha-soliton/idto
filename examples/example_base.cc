@@ -1,6 +1,7 @@
 #include "examples/example_base.h"
 
 #include <chrono>
+#include <fstream>
 #include <iostream>
 #include <thread>
 #include <utility>
@@ -30,7 +31,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
+          "/home/manabun/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -155,6 +156,13 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Compile the diagram
   auto diagram = builder.Build();
+
+  // Save diagram.
+  std::ofstream diagram_file;
+  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
+  diagram_file<<diagram->GetGraphvizString();
+  diagram_file.close();
+
   std::unique_ptr<drake::systems::Context<double>> diagram_context =
       diagram->CreateDefaultContext();
   drake::systems::Context<double>& plant_context =
