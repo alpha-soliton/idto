@@ -51,6 +51,7 @@ idto_cc_shared_library(
         ":mpc_controller",
         ":pd_plus_controller",
         ":yaml_config",
+        ":disturbance_system",
         "//utils:find_resource",
         "//optimizer:problem_definition",
         "//optimizer:trajectory_optimizer",

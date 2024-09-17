@@ -8,6 +8,7 @@
 
 #include "examples/mpc_controller.h"
 #include "examples/pd_plus_controller.h"
+//#include "examples/disturbance_system.cc"
 #include <drake/common/fmt_eigen.h>
 #include <drake/systems/primitives/discrete_time_delay.h>
 #include <drake/visualization/visualization_config_functions.h>
@@ -24,6 +25,7 @@ using Eigen::Matrix4d;
 using mpc::Interpolator;
 using mpc::ModelPredictiveController;
 using pd_plus::PdPlusController;
+//using DisturbanceGenerator;
 
 void TrajOptExample::RunExample(const std::string options_file,
                                 const bool test) const {
