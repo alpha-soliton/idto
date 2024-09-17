@@ -8,7 +8,7 @@
 
 #include "examples/mpc_controller.h"
 #include "examples/pd_plus_controller.h"
-//#include "examples/disturbance_system.cc"
+#include "examples/disturbance_system.h"
 #include <drake/common/fmt_eigen.h>
 #include <drake/systems/primitives/discrete_time_delay.h>
 #include <drake/visualization/visualization_config_functions.h>
@@ -33,7 +33,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabun/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
+          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -156,12 +156,17 @@ void TrajOptExample::RunModelPredictiveControl(
   builder.Connect(plant.get_state_output_port(),
                   controller->get_state_input_port());
 
+  // Add disturbance generator system.
+  auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 100.0, 1.0);
+  builder.Connect(disturbance->get_output_port(),
+      plant.get_applied_spatial_force_input_port());
+
   // Compile the diagram
   auto diagram = builder.Build();
 
   // Save diagram.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
+  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 

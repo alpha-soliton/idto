@@ -34,6 +34,7 @@ idto_cc_shared_library(
 idto_cc_shared_library(
     name = "disturbance_system",
     srcs = ["disturbance_system.cc"],
+    hdrs = ["disturbance_system.h"],
     deps = [
         "@drake//multibody/plant:externally_applied_spatial_force",
         "@drake//multibody/tree",

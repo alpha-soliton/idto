@@ -37,7 +37,7 @@ class SimpleMazeExample : public TrajOptExample {
 
     // Add a hopper
     std::string urdf_file =
-          "/home/manabun/idto/examples/models/simple_maze.sdf";
+          "/home/manabu-nishiura/idto/examples/models/simple_maze.sdf";
     //    idto::FindIdtoResourceOrThrow("idto/examples/models/simple_maze.sdf");
     Parser(plant).AddModels(urdf_file);
 

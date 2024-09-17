@@ -1,13 +1,7 @@
-#include <random>
+#include "examples/disturbance_system.h"
 
-#include <drake/multibody/plant/externally_applied_spatial_force.h>
-#include <drake/multibody/plant/multibody_plant.h>
-#include <drake/multibody/math/spatial_force.h>
-#include <drake/multibody/tree/multibody_element.h>
-#include "drake/multibody/tree/rigid_body.h"
-#include <drake/systems/framework/context.h>
-#include <drake/systems/framework/leaf_system.h>
-#include <drake/systems/framework/event.h>
+#include <random>
+#include <iostream>
 
 namespace idto {
 namespace examples {
@@ -27,60 +21,67 @@ using drake::systems::VectorBase;
 using drake::systems::PublishEvent;
 using drake::systems::TriggerType;
 
-constexpr double kDisturbancePeriod = 1.0;
-
-class DisturbanceGenerator : public LeafSystem<double> {
- public:
-  explicit DisturbanceGenerator(const MultibodyPlant<double>* plant,
-      const double force_mag, const double period) : plant_(plant),
-      force_mag_(force_mag), period_(period),
-      gen(std::random_device{}()),
-      dis(-force_mag, force_mag) {
-    this->DeclareAbstractOutputPort(
-        "spatial_forces",
-        &DisturbanceGenerator::CalcDisturbance);
-    this->DeclarePeriodicDiscreteUpdateEvent(0.0, 0.0,
-        &DisturbanceGenerator::PerStep);
-    this->DeclareDiscreteState(1);
-  }
-
-  double generate_random_force() const {
-    return dis(gen);
-  }
-
- private:
-  void CalcDisturbance(const Context<double>& context,
-      std::vector<ExternallyAppliedSpatialForce<double>>* output) const {
-    output->resize(1);
-    const RigidBody<double>* box_body = &plant_->GetBodyByName("box_ghost_body_x");
-    (*output)[0].body_index = box_body->index();
-    (*output)[0].p_BoBq_B = box_body->default_com();
-    auto random_fy = context.get_discrete_state(0).value()[0];
-    const Vector3<double> tau(0.0, 0.0, 0.0);
-    const Vector3<double> force(0.0, random_fy, 0.0);
-    auto random_force = SpatialForce<double>(tau, force);
-    (*output)[0].F_Bq_W = random_force;
-    random_fy = 0.0;
-  }
-  EventStatus PerStep(const Context<double>& context,
-      DiscreteValues<double>* discrete_state) const {
-    const Vector3<double> tau(0.0, 0.0, 0.0);
-    auto random_fy = discrete_state->get_mutable_value(0);
-    double random_fy_value = generate_random_force();
-    random_fy(0) = random_fy_value;
-    //const Vector3<double> force(0.0, random_fy(0), 0.0);
-    //random_force = SpatialForce<double>(tau, force);
-
-    return EventStatus::Succeeded();
-  };
-  const MultibodyPlant<double>* plant_{nullptr};
-  const double force_mag_;
-  const double period_{0.0};
-  mutable std::mt19937 gen;
-  mutable std::uniform_real_distribution<> dis;
-  //SpatialForce<double> random_force;
-};
-
-}
+DisturbanceGenerator::DisturbanceGenerator(const MultibodyPlant<double>* plant,
+                                   const double force_mag, const double period)
+    : plant_(plant), force_mag_(force_mag), period_(period),
+      gen(std::random_device{}()), dis(-force_mag, force_mag) {
+  this->DeclareAbstractOutputPort(
+      "spatial_forces",
+      &DisturbanceGenerator::CalcDisturbance);
+  this->DeclarePeriodicDiscreteUpdateEvent(period_, 0.0,
+      &DisturbanceGenerator::PerStep);
+  this->DeclareDiscreteState(2); // fx, fy
 }
 
+void DisturbanceGenerator::CalcDisturbance(const Context<double>& context,
+    std::vector<ExternallyAppliedSpatialForce<double>>* output) const {
+  output->resize(2);
+
+  // x direction.
+  const RigidBody<double>* box_body_x = &plant_->GetBodyByName("box_ghost_body_x");
+  (*output)[0].body_index = box_body_x->index();
+  (*output)[0].p_BoBq_B = box_body_x->default_com();
+  auto random_fx = context.get_discrete_state(0).value()[0];
+  const Vector3<double> tau_x(0.0, 0.0, 0.0);
+  const Vector3<double> force_x(random_fx, 0.0, 0.0);
+  auto random_force_x = SpatialForce<double>(tau_x, force_x);
+  (*output)[0].F_Bq_W = random_force_x;
+
+  // y direction.
+  const RigidBody<double>* box_body_y = &plant_->GetBodyByName("box_ghost_body_y");
+  (*output)[1].body_index = box_body_y->index();
+  (*output)[1].p_BoBq_B = box_body_y->default_com();
+  auto random_fy = context.get_discrete_state(0).value()[1];
+  const Vector3<double> tau_y(0.0, 0.0, 0.0);
+  const Vector3<double> force_y(0.0, random_fy, 0.0);
+  auto random_force_y = SpatialForce<double>(tau_y, force_y);
+  (*output)[1].F_Bq_W = random_force_y;
+
+  // Clear force.
+  // TODO(manabun):
+  //auto random_f = context.get_mutable_discrete_state().get_mutable_value(0);
+  auto current_time = context.get_time();
+  if ((current_time - last_force_update) > 0.1) {
+    auto random_f = const_cast<drake::systems::Context<double>&>(context).get_mutable_discrete_state().get_mutable_value(0);
+    random_f(0) = 0.0;
+    random_f(1) = 0.0;
+  }
+}
+
+EventStatus DisturbanceGenerator::PerStep(const Context<double>& context,
+    DiscreteValues<double>* discrete_state) const {
+  auto random_fx = discrete_state->get_mutable_value(0);
+  double random_fx_value = generate_random_force();
+  random_fx(0) = random_fx_value;
+
+  auto random_fy = discrete_state->get_mutable_value(0);
+  double random_fy_value = generate_random_force();
+  random_fy(1) = random_fy_value;
+
+  last_force_update = context.get_time();
+
+  return EventStatus::Succeeded();
+}
+
+} // namespace examples
+} // namespace idto
