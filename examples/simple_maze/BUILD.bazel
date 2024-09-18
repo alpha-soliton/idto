@@ -20,4 +20,21 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "simple_maze_gqdp_traj",
+    srcs = ["simple_maze_gqdp_traj.cc"],
+    data = [
+        "//examples/simple_maze:simple_maze.yaml",
+        "//examples:models",
+    ],
+    deps = [
+        "//examples:example_base",
+        "//utils:find_resource",
+        "@drake//multibody/parsing",
+        "@drake//multibody/plant",
+        "@drake//common/yaml",
+        "@gflags"
+    ],
+)
+
 add_lint_tests()
