@@ -38,7 +38,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze.yaml", {}, default_options);
+          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -270,7 +270,7 @@ TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
   std::vector<VectorXd> q_guess = MakeLinearInterpolation(
       opt_prob.q_init, options.q_guess, opt_prob.num_steps + 1);
   */
-  NormalizeQuaternions(plant, &q_guess);
+  //NormalizeQuaternions(plant, &q_guess);
 
   // N.B. This should always be the case, and is checked by the solver. However,
   // sometimes floating point + normalization stuff makes q_guess != q_init, so
@@ -285,6 +285,8 @@ TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
   if (options.play_initial_guess) {
     std::cout<<"Playing back initial guess."<<std::endl;
     PlayBackTrajectory(q_guess, options.time_step);
+    std::string input;
+    std::getline(std::cin, input);
   }
 
   // Solve the optimzation problem
@@ -560,6 +562,8 @@ void TrajOptExample::PlayBackTrajectory(const std::vector<VectorXd>& q,
   const int N = q.size();
   for (int t = 0; t < N; ++t) {
     diagram_context->SetTime(t * time_step);
+    std::cout<<"q("<<t * time_step<<"): "<<q[t][0]<<", "<<q[t][1]<<", "<<q[t][2]<<", ";
+    std::cout<<q[t][3]<<", "<<q[t][4]<<std::endl;
     plant.SetPositions(&plant_context, q[t]);
     diagram->ForcedPublish(*diagram_context);
 

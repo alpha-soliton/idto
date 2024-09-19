@@ -7,11 +7,11 @@
 DEFINE_bool(test, false,
             "whether this example is being run in test mode, where we solve a "
             "simpler problem");
-DEFINE_string(trajectory, "/home/manabun/planning_through_contact/tree_planar_pushing_intersegment_refined.yaml",
+DEFINE_string(trajectory, "/home/manabu-nishiura/planning_through_contact/tree_planar_pushing_intersegment_refined_qa_qu.yaml",
               "GQDP trajectory file used to feed initial guess of IDTO");
 DEFINE_double(nominal_update_dt, 0.4,
               "Interval for updating the nominal_state.");
-DEFINE_string(yaml_file, "idto/examples/simple_maze/simple_maze_gqdp_traj.yaml",
+DEFINE_string(yaml_file, "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze_gqdp.yaml",
               "Configuration file containing the definition of the trajectory "
               "optimization problem");
 DEFINE_bool(time_varying_cost, false,
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
                                         options.num_steps + 1);
 
   idto::examples::hopper::SimpleMazeExample example;
-  example.RunExample("idto/examples/simple_maze/simple_maze.yaml",
+  example.RunExample("idto/examples/simple_maze/simple_maze_gqdp.yaml",
       initial_trajectory, whole_trajectory, FLAGS_nominal_update_dt,
       FLAGS_test, FLAGS_time_varying_cost);
 

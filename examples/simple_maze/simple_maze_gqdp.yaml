@@ -51,7 +51,7 @@ gradients_method: "forward_differences"
 
 # Playback/visualization parameters
 play_target_trajectory : false
-play_initial_guess : false
+play_initial_guess : true
 play_optimal_trajectory : false
 
 # Debugging parameters
@@ -84,3 +84,6 @@ sim_realtime_rate : 0.0
 feed_forward : true
 Kp : [10,10,0,0,0]
 Kd : [1,1,0,0,0]
+
+save_mpc_result_as_static_html: true
+static_html_filename: "/home/manabu-nishiura/idto/results.html"

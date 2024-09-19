@@ -41,6 +41,12 @@ using internal::PentaDiagonalFactorization;
 using internal::PentaDiagonalFactorizationStatus;
 
 template <typename T>
+struct is_autodiffscalar : std::false_type {};
+
+template <typename T>
+struct is_autodiffscalar<Eigen::AutoDiffScalar<T>> : std::true_type {};
+
+template <typename T>
 TrajectoryOptimizer<T>::TrajectoryOptimizer(const Diagram<T>* diagram,
                                             const MultibodyPlant<T>* plant,
                                             const ProblemDefinition& prob,
@@ -228,14 +234,29 @@ T TrajectoryOptimizer<T>::CalcCost(
   q_f_cost += T(q_err.transpose() * prob_.Qf_q * q_err);
   v_f_cost += T(v_err.transpose() * prob_.Qf_v * v_err);
 
-  printf("| %6.3f ", cost);
-  printf("| %8.3f ", q_err_cost);
-  printf("| %8.3f ", q_f_cost);
-  printf("| %8.3f ", v_err_cost);
-  printf("| %8.3f ", v_f_cost);
-  printf("| %6.3f ", tau_err_cost);
-  printf("| %6.3f ", tau_err_actuated_cost);
-  printf("| %6.3f |\n", tau_err_unactuated_cost);
+  if constexpr (is_autodiffscalar<T>::value) {
+    // Eigen::AutoDiffScalarの場合、value()を使って出力
+    printf("| %6.3f ", cost.value());
+    printf("| %8.3f ", q_err_cost.value());
+    printf("| %8.3f ", q_f_cost.value());
+    printf("| %8.3f ", v_err_cost.value());
+    printf("| %8.3f ", v_f_cost.value());
+    printf("| %6.3f ", tau_err_cost.value());
+    printf("| %6.3f ", tau_err_actuated_cost.value());
+    printf("| %6.3f |\n", tau_err_unactuated_cost.value());
+  } else if constexpr (std::is_same<T, double>::value || std::is_floating_point<T>::value) {
+    // doubleや他の浮動小数点型の場合、そのまま出力
+    printf("| %6.3f ", cost);
+    printf("| %8.3f ", q_err_cost);
+    printf("| %8.3f ", q_f_cost);
+    printf("| %8.3f ", v_err_cost);
+    printf("| %8.3f ", v_f_cost);
+    printf("| %6.3f ", tau_err_cost);
+    printf("| %6.3f ", tau_err_actuated_cost);
+    printf("| %6.3f |\n", tau_err_unactuated_cost);
+  } else {
+    std::cerr << "Unsupported type for printing" << std::endl;
+  }
 
   return cost;
 }
