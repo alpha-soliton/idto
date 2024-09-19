@@ -38,7 +38,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
+          "/home/manabun/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -180,7 +180,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Save diagram.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
+  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 

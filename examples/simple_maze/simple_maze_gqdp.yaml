@@ -86,4 +86,4 @@ Kp : [10,10,0,0,0]
 Kd : [1,1,0,0,0]
 
 save_mpc_result_as_static_html: true
-static_html_filename: "/home/manabu-nishiura/idto/results.html"
+static_html_filename: "/home/manabun/idto/results.html"
