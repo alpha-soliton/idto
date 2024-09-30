@@ -13,8 +13,8 @@ q_guess: [1.3, 0.0, 0.0, 1.5, 0.0]
 
 # Cost weights. These define diagonal matrices, again with the ordering
 # [sphere x, sphere y, box x, box y, box theta]
-Qq: [0, 0, 1, 1, 0]
-Qv: [0.1, 0.1, 0.1, 0.1, 0.1]
+Qq: [0.1, 0.1, 1e1, 1e1, 0]
+Qv: [1e-2, 1e-2, 1e-2, 1e-2, 1e-2]
 R: [0.1, 0.1, 1e3, 1e3, 1e3]
 
 Qfq: [0, 0, 10, 10, 0]
@@ -52,7 +52,7 @@ gradients_method: "forward_differences"
 # Playback/visualization parameters
 play_target_trajectory : false
 play_initial_guess : true
-play_optimal_trajectory : false
+play_optimal_trajectory : true
 
 # Debugging parameters
 linesearch_plot_every_iteration : false
@@ -78,7 +78,7 @@ stiction_velocity: 0.05     # Regularization velocity, in m/s.
 mpc : true
 mpc_iters : 1
 controller_frequency : 200.0
-sim_time : 5
+sim_time : 10
 sim_time_step : 1e-3
 sim_realtime_rate : 0.0
 feed_forward : true
@@ -86,4 +86,4 @@ Kp : [10,10,0,0,0]
 Kd : [1,1,0,0,0]
 
 save_mpc_result_as_static_html: true
-static_html_filename: "/home/manabun/idto/results.html"
+static_html_filename: "/home/manabu-nishiura/idto/results.html"

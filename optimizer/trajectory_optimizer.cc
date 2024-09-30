@@ -168,12 +168,6 @@ T TrajectoryOptimizer<T>::CalcCost(
   T tau_err_cost = 0;
   T tau_err_actuated_cost = 0;
   T tau_err_unactuated_cost = 0;
-  T taux_cost = 0;
-  T tauy_cost = 0;
-  T tauz_cost = 0;
-  T fx_cost = 0;
-  T fy_cost = 0;
-  T fz_cost = 0;
   T q_f_cost = 0;
   T v_f_cost = 0;
 
@@ -206,14 +200,8 @@ T TrajectoryOptimizer<T>::CalcCost(
     q_err_cost += T(q_err.transpose() * prob_.Qq * q_err);
     v_err_cost += T(v_err.transpose() * prob_.Qv * v_err);
     tau_err_cost += T(tau[t].transpose() * prob_.R * tau[t]);
-    tau_err_actuated_cost += T(tau[t].head(14).transpose() * prob_.R.topLeftCorner(14, 14) * tau[t].head(14));
-    tau_err_unactuated_cost += T(tau[t].tail(6).transpose() * prob_.R.bottomRightCorner(6, 6) * tau[t].tail(6));
-    taux_cost += T(tau[t](14) * prob_.R.row(14) * tau[t]);
-    tauy_cost += T(tau[t](15) * prob_.R.row(15) * tau[t]);
-    tauz_cost += T(tau[t](16) * prob_.R.row(16) * tau[t]);
-    fx_cost += T(tau[t](17) * prob_.R.row(17) * tau[t]);
-    fy_cost += T(tau[t](18) * prob_.R.row(18) * tau[t]);
-    fz_cost += T(tau[t](19) * prob_.R.row(19) * tau[t]);
+    tau_err_actuated_cost += T(tau[t].head(2).transpose() * prob_.R.topLeftCorner(2, 2) * tau[t].head(2));
+    tau_err_unactuated_cost += T(tau[t].tail(3).transpose() * prob_.R.bottomRightCorner(3, 3) * tau[t].tail(3));
   }
 
   q_err_cost *= time_step();

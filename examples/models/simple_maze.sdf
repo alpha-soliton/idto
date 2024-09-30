@@ -208,6 +208,246 @@
         </surface>
       </collision>
 
+      <collision name="plus_x_plus_y_1">
+        <pose> 0.375 0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_plus_y_1">
+        <pose> 0.375 0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="plus_x_plus_y_2">
+        <pose> 0.375 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_plus_y_2">
+        <pose> 0.375 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="plus_x_plus_y_3">
+        <pose> 0.125 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_plus_y_3">
+        <pose> 0.125 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="plus_x_minus_y_1">
+        <pose> 0.375 -0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_minus_y_1">
+        <pose> 0.375 -0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="plus_x_minus_y_2">
+        <pose> 0.375 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_minus_y_2">
+        <pose> 0.375 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="plus_x_minus_y_3">
+        <pose> 0.125 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="plus_x_minus_y_3">
+        <pose> 0.125 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_plus_y_1">
+        <pose> -0.375 0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_plus_y_1">
+        <pose> -0.375 0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_plus_y_2">
+        <pose> -0.375 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_plus_y_2">
+        <pose> -0.375 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_plus_y_3">
+        <pose> -0.125 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_plus_y_3">
+        <pose> -0.125 0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_minus_y_1">
+        <pose> -0.375 -0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_minus_y_1">
+        <pose> -0.375 -0.125 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_minus_y_2">
+        <pose> -0.375 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_minus_y_2">
+        <pose> -0.375 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
+      <collision name="minus_x_minus_y_3">
+        <pose> -0.125 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+      </collision>
+      <visual name="minus_x_minus_y_3">
+        <pose> -0.125 -0.375 0.0 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.125</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <diffuse>0.0 0.8 0.0 0.8</diffuse>
+        </material>
+      </visual>
+
       <collision name="minus_x_lower_left_corner">
         <pose> -0.5 -0.5 -0.5 0 0 0</pose>
         <geometry>
@@ -283,7 +523,7 @@
 
     <link name="wall">
     <visual name='visual'>
-      <pose> 0 0.75 0 0 0 0 </pose>
+      <pose> 0 0.75 -0.35 0 0 0 </pose>
       <geometry>
         <box>
          <size>2.0 0.2 0.3</size>
@@ -295,7 +535,7 @@
     </visual>
 
     <collision name='collision'>
-      <pose> 0 0.75 0 0 0 0 </pose>
+      <pose> 0 0.75 -0.35 0 0 0 </pose>
       <geometry>
         <box>
          <size>2.0 0.2 0.3</size>

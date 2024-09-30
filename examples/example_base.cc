@@ -38,7 +38,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabun/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
+          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -171,7 +171,7 @@ void TrajOptExample::RunModelPredictiveControl(
                   controller->get_state_input_port());
 
   // Add disturbance generator system.
-  auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 100.0, 1.0);
+  auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 0.0, 1.0);
   builder.Connect(disturbance->get_output_port(),
       plant.get_applied_spatial_force_input_port());
 
@@ -180,7 +180,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Save diagram.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
+  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 
@@ -285,6 +285,7 @@ TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
   if (options.play_initial_guess) {
     std::cout<<"Playing back initial guess."<<std::endl;
     PlayBackTrajectory(q_guess, options.time_step);
+    std::cout<<"Press Enter to proceed to TrajectoryOptimization."<<std::endl;
     std::string input;
     std::getline(std::cin, input);
   }
@@ -562,8 +563,8 @@ void TrajOptExample::PlayBackTrajectory(const std::vector<VectorXd>& q,
   const int N = q.size();
   for (int t = 0; t < N; ++t) {
     diagram_context->SetTime(t * time_step);
-    std::cout<<"q("<<t * time_step<<"): "<<q[t][0]<<", "<<q[t][1]<<", "<<q[t][2]<<", ";
-    std::cout<<q[t][3]<<", "<<q[t][4]<<std::endl;
+    //std::cout<<"q("<<t * time_step<<"): "<<q[t][0]<<", "<<q[t][1]<<", "<<q[t][2]<<", ";
+    //std::cout<<q[t][3]<<", "<<q[t][4]<<std::endl;
     plant.SetPositions(&plant_context, q[t]);
     diagram->ForcedPublish(*diagram_context);
 
