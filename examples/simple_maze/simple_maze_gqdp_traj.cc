@@ -1,5 +1,6 @@
 #include "examples/example_base.h"
 #include <drake/common/find_resource.h>
+#include <drake/geometry/proximity_properties.h>
 #include <drake/multibody/plant/multibody_plant.h>
 #include <drake/multibody/tree/prismatic_joint.h>
 #include <gflags/gflags.h>
@@ -63,6 +64,10 @@ namespace idto {
 namespace examples {
 namespace hopper {
 
+using drake::geometry::AddCompliantHydroelasticProperties;
+using drake::geometry::AddContactMaterial;
+using drake::geometry::Box;
+using drake::geometry::ProximityProperties;
 using drake::geometry::Box;
 using drake::math::RigidTransformd;
 using drake::multibody::CoulombFriction;
@@ -99,6 +104,30 @@ class SimpleMazeExample : public TrajOptExample {
     plant->RegisterCollisionGeometry(plant->world_body(), X_ground,
                                      Box(25, 25, 10), "ground",
                                      CoulombFriction<double>(0.5, 0.5));
+  }
+
+  void CreatePlantModelForSimulation(
+      MultibodyPlant<double>* plant) const final {
+    const drake::Vector4<double> green(0.3, 0.6, 0.4, 1.0);
+
+    // Use hydroelastic contact, and throw instead of point contact fallback
+    plant->set_contact_model(drake::multibody::ContactModel::kHydroelastic);
+
+    std::string simple_maze_file =
+          "/home/manabu-nishiura/idto/examples/models/simple_maze_hydro.sdf";
+    Parser(plant).AddModels(simple_maze_file);
+
+    // Add collision with the ground
+    RigidTransformd X_ground(Vector3d(0.0, 0.0, -5.5));
+    plant->RegisterVisualGeometry(plant->world_body(), X_ground,
+                                  Box(25, 25, 10), "ground", green);
+    ProximityProperties ground_proximity;
+    AddContactMaterial(3.0, {}, CoulombFriction<double>(0.5, 0.5),
+                       &ground_proximity);
+    AddCompliantHydroelasticProperties(0.1, 5e6, &ground_proximity);
+    plant->RegisterCollisionGeometry(plant->world_body(), X_ground,
+                                     Box(25, 25, 10), "ground",
+                                     ground_proximity);
   }
 };
 
