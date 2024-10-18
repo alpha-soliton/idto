@@ -128,7 +128,7 @@
           <effort>0</effort>
         </limit>
       	<dynamics>
-      	  <damping>100.0</damping>
+      	  <damping>10.0</damping>
       	</dynamics>
       </axis>
     </joint>
@@ -145,7 +145,7 @@
           <effort>0</effort>
         </limit>
       	<dynamics>
-      	  <damping>100.0</damping>
+      	  <damping>10.0</damping>
       	</dynamics>
       </axis>
     </joint>
@@ -162,7 +162,7 @@
           <effort>0</effort>
         </limit>
       	<dynamics>
-      	  <damping>100.0</damping>
+      	  <damping>10.0</damping>
       	</dynamics>
       </axis>
     </joint>
@@ -183,7 +183,7 @@
       <visual name="box_visual">
         <geometry>
           <box>
-            <size>0.999 0.999 0.999</size>
+            <size>0.999 0.999 0.899</size>
           </box>
         </geometry>
         <material>
@@ -191,20 +191,17 @@
         </material>
       </visual>
 
-      <collision name="box_collision">
+      <collision name="sphere_collision">
         <geometry>
+          <sphere>
+            <radius>0.505</radius>
+          </sphere>
+          <!--
           <box>
-            <size>0.999 0.999 0.999</size>
+            <size>0.99 0.999 1.0</size>
           </box>
+          -->
         </geometry>
-        <surface>
-          <friction>
-            <ode>
-              <mu>0.5</mu>
-              <mu2>0.5</mu2>
-            </ode>
-          </friction>
-        </surface>
         <drake:proximity_properties>
           <drake:compliant_hydroelastic/>
           <drake:mesh_resolution_hint>0.1</drake:mesh_resolution_hint>
@@ -212,17 +209,20 @@
           <drake:hunt_crossley_dissipation>3.0</drake:hunt_crossley_dissipation>
         </drake:proximity_properties>
       </collision>
-      <visual name="box_collision_visual">
-        <geometry>
-          <sphere>
-            <radius>0.5</radius>
-          </sphere>
-        </geometry>
-        <material>
-          <diffuse>0.0 0.8 0.0 0.8</diffuse>
-        </material>
-      </visual>
 
+      <collision name="box_collision">
+        <geometry>
+          <box>
+            <size>0.99 0.999 1.0</size>
+          </box>
+        </geometry>
+        <drake:proximity_properties>
+          <drake:compliant_hydroelastic/>
+          <drake:mesh_resolution_hint>0.1</drake:mesh_resolution_hint>
+          <drake:hydroelastic_modulus>5e6</drake:hydroelastic_modulus>
+          <drake:hunt_crossley_dissipation>3.0</drake:hunt_crossley_dissipation>
+        </drake:proximity_properties>
+      </collision>
     </link>
 
     <link name="wall">
