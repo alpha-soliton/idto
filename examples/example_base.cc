@@ -11,15 +11,27 @@
 #include "examples/disturbance_system.h"
 #include <drake/common/fmt_eigen.h>
 #include <drake/common/text_logging.h>
+#include <drake/examples/planar_pushing/planar_pushing_lcm.h>
+#include <drake/lcmt_planar_pushing_u.hpp>
+#include <drake/lcmt_planar_pushing_x.hpp>
+#include <drake/systems/lcm/lcm_interface_system.h>
+#include <drake/systems/lcm/lcm_publisher_system.h>
+#include <drake/systems/lcm/lcm_subscriber_system.h>
+#include <drake/systems/primitives/demultiplexer.h>
 #include <drake/systems/primitives/discrete_time_delay.h>
 #include <drake/visualization/visualization_config_functions.h>
 
 namespace idto {
 namespace examples {
 
+using drake::examples::planar_pushing::PlanarPushingStateSender;
+using drake::examples::planar_pushing::PlanarPushingCommandSender;
+using drake::lcmt_planar_pushing_x;
+using drake::lcmt_planar_pushing_u;
 using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
+using drake::systems::Demultiplexer;
 using drake::systems::DiscreteTimeDelay;
 using drake::visualization::AddDefaultVisualization;
 using Eigen::Matrix4d;
@@ -38,7 +50,7 @@ void TrajOptExample::RunExample(const std::string options_file,
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
-          "/home/manabu-nishiura/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
+          "/home/manabun/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -170,6 +182,44 @@ void TrajOptExample::RunModelPredictiveControl(
   builder.Connect(plant.get_state_output_port(),
                   controller->get_state_input_port());
 
+  // Add Demultiplexer for State/Command Sender.
+  auto demux = builder.AddSystem<Demultiplexer>(nq+nv, nq);
+  builder.Connect(interpolator->get_state_output_port(),
+                  demux->get_input_port());
+
+  // Add Demultiplexer for Command Sender.
+  const std::vector<int> output_port_sizes = {2, 3};
+  auto demux_box_sphere = builder.AddSystem<Demultiplexer>(output_port_sizes);
+
+  // Add lcm state publisher.
+  const std::string channel_x = "planar_pushing_x";
+  const std::string channel_u = "planar_pushing_u";
+  auto lcm = builder.AddSystem<drake::systems::lcm::LcmInterfaceSystem>();
+  auto state_pub = builder.AddSystem(
+      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_x>(
+      channel_x, lcm));
+  auto state_sender = builder.AddSystem<PlanarPushingStateSender>();
+  builder.Connect(state_sender->get_output_port(0),
+                  state_pub->get_input_port());
+  builder.Connect(plant.get_state_output_port(),
+      state_sender->get_input_port(0));
+  builder.Connect(demux->get_output_port(0),
+      state_sender->get_input_port(1));
+
+  // Add lcm command publisher.
+  auto command_pub = builder.AddSystem(
+      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_u>(
+        channel_u, lcm));
+  auto command_sender = builder.AddSystem<PlanarPushingCommandSender>();
+  builder.Connect(command_sender->get_output_port(),
+                  command_pub->get_input_port());
+  builder.Connect(pd->get_control_output_port(),
+                  command_sender->get_input_port(0));
+  builder.Connect(demux->get_output_port(0),
+                  demux_box_sphere->get_input_port());
+  builder.Connect(demux_box_sphere->get_output_port(0),
+                  command_sender->get_input_port(1));
+
   // Add disturbance generator system.
   auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 0.0, 1.0);
   builder.Connect(disturbance->get_output_port(),
@@ -180,7 +230,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Save diagram.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
+  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 

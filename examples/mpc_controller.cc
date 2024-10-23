@@ -81,7 +81,8 @@ EventStatus ModelPredictiveController::UpdateAbstractState(
 
   if (traj_index < (whole_trajectory_length_ - num_steps_) and \
       start_time - last_nominal_update_time_ >= nominal_update_period_) {
-    std::cout<<"Updating nominal states."<<std::endl;
+    int current_index = num_steps_ + traj_index;
+    std::cout<<"Updating nominal states. Index: "<<current_index<<"/"<<whole_trajectory_length_<<std::endl;
     optimizer_.UpdateNominalStates(whole_trajectory_[num_steps_ + traj_index]);
     traj_index += 1;
     last_nominal_update_time_ = start_time;
