@@ -48,9 +48,14 @@ void TrajOptExample::RunExample(const std::string options_file,
                                 const bool time_varying_cost) const {
   // Load parameters from file
   TrajOptExampleParams default_options;
+  /*
   TrajOptExampleParams options =
       drake::yaml::LoadYamlFile<TrajOptExampleParams>(
           "/home/manabun/idto/examples/simple_maze/simple_maze_gqdp.yaml", {}, default_options);
+  */
+  TrajOptExampleParams options =
+      drake::yaml::LoadYamlFile<TrajOptExampleParams>(
+          idto::FindIdtoResourceOrThrow(options_file), {}, default_options);
 
   if (test) {
     // Use simplified options for a smoke test
@@ -230,7 +235,7 @@ void TrajOptExample::RunModelPredictiveControl(
 
   // Save diagram.
   std::ofstream diagram_file;
-  diagram_file.open("/home/manabun/idto/simple_maze_diagram.dot");
+  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
   diagram_file<<diagram->GetGraphvizString();
   diagram_file.close();
 
@@ -242,12 +247,12 @@ void TrajOptExample::RunModelPredictiveControl(
   // Set up the simulation
   //plant.SetPositions(&plant_context, options.q_init);
   std::cout<<"Setting object pose from yaml file.";
-  std::cout<<"\tobs: "<<options.q_init[11]<<", "<<options.q_init[12]<<", ";
-  std::cout<<options.q_init[13]<<std::endl;
+  std::cout<<"\tobs: "<<options.q_init[2]<<", "<<options.q_init[3]<<", ";
+  std::cout<<options.q_init[4]<<std::endl;
   auto mixed_q_init = trajectory[0];
-  mixed_q_init[11] = options.q_init[11];
-  mixed_q_init[12] = options.q_init[12];
-  mixed_q_init[13] = options.q_init[13];
+  mixed_q_init[2] = options.q_init[2];
+  mixed_q_init[3] = options.q_init[3];
+  mixed_q_init[4] = options.q_init[4];
   plant.SetPositions(&plant_context, mixed_q_init);
   plant.SetVelocities(&plant_context, options.v_init);
   drake::systems::Simulator<double> simulator(*diagram,

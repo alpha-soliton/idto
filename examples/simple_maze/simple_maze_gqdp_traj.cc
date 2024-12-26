@@ -8,11 +8,11 @@
 DEFINE_bool(test, false,
             "whether this example is being run in test mode, where we solve a "
             "simpler problem");
-DEFINE_string(trajectory, "/home/manabun/planning_through_contact/tree_planar_pushing_intersegment_refined_qa_qu_xy.yaml",
+DEFINE_string(trajectory, "/home/manabu-nishiura/planning_through_contact/tree_planar_pushing_intersegment_refined_qa_qu_xy.yaml",
               "GQDP trajectory file used to feed initial guess of IDTO");
 DEFINE_double(nominal_update_dt, 0.4,
               "Interval for updating the nominal_state.");
-DEFINE_string(yaml_file, "/home/manabun/idto/examples/simple_maze/simple_maze_gqdp.yaml",
+DEFINE_string(yaml_file, "idto/examples/simple_maze/simple_maze_gqdp.yaml",
               "Configuration file containing the definition of the trajectory "
               "optimization problem");
 DEFINE_bool(time_varying_cost, false,
@@ -93,8 +93,8 @@ class SimpleMazeExample : public TrajOptExample {
 
     // Add a hopper
     std::string urdf_file =
-          "/home/manabun/idto/examples/models/simple_maze.sdf";
-    //    idto::FindIdtoResourceOrThrow("idto/examples/models/simple_maze.sdf");
+            idto::FindIdtoResourceOrThrow("idto/examples/models/simple_maze.sdf");
+    //      "/home/manabun/idto/examples/models/simple_maze.sdf";
     Parser(plant).AddModels(urdf_file);
 
     // Add collision with the ground
@@ -114,7 +114,8 @@ class SimpleMazeExample : public TrajOptExample {
     plant->set_contact_model(drake::multibody::ContactModel::kHydroelastic);
 
     std::string simple_maze_file =
-          "/home/manabun/idto/examples/models/simple_maze_hydro.sdf";
+          idto::FindIdtoResourceOrThrow("idto/examples/models/simple_maze_hydro.sdf");
+    //    "/home/manabun/idto/examples/models/simple_maze_hydro.sdf";
     Parser(plant).AddModels(simple_maze_file);
 
     // Add collision with the ground
@@ -141,7 +142,8 @@ int main(int argc, char* argv[]) {
   // Load the problem definition from YAML
   TrajOptExampleParams default_options;
   TrajOptExampleParams options =
-      LoadYamlFile<TrajOptExampleParams>(FLAGS_yaml_file, {}, default_options);
+      LoadYamlFile<TrajOptExampleParams>(
+          idto::FindIdtoResourceOrThrow(FLAGS_yaml_file), {}, default_options);
 
   LoadYamlOptions yaml_options;
   yaml_options.allow_yaml_with_no_cpp = true;
