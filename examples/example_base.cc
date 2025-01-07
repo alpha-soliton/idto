@@ -196,6 +196,13 @@ void TrajOptExample::RunModelPredictiveControl(
   const std::vector<int> output_port_sizes = {2, 3};
   auto demux_box_sphere = builder.AddSystem<Demultiplexer>(output_port_sizes);
 
+  // Add Demultiplexer for State/Command Sender.
+  // input desired_velocity of sphere and box.
+  // output desired_velocity of sphere.
+  auto demux_box_sphere_vel = builder.AddSystem<Demultiplexer>(output_port_sizes);
+  builder.Connect(demux->get_output_port(1),
+                  demux_box_sphere_vel->get_input_port());
+
   // Add lcm state publisher.
   const std::string channel_x = "planar_pushing_x";
   const std::string channel_u = "planar_pushing_u";
@@ -210,6 +217,8 @@ void TrajOptExample::RunModelPredictiveControl(
       state_sender->get_input_port(0));
   builder.Connect(demux->get_output_port(0),
       state_sender->get_input_port(1));
+  builder.Connect(demux_box_sphere_vel->get_output_port(0),
+      state_sender->get_input_port(2));
 
   // Add lcm command publisher.
   auto command_pub = builder.AddSystem(
@@ -218,12 +227,16 @@ void TrajOptExample::RunModelPredictiveControl(
   auto command_sender = builder.AddSystem<PlanarPushingCommandSender>();
   builder.Connect(command_sender->get_output_port(),
                   command_pub->get_input_port());
-  builder.Connect(pd->get_control_output_port(),
+  builder.Connect(interpolator->get_control_output_port(),
                   command_sender->get_input_port(0));
   builder.Connect(demux->get_output_port(0),
                   demux_box_sphere->get_input_port());
   builder.Connect(demux_box_sphere->get_output_port(0),
                   command_sender->get_input_port(1));
+  builder.Connect(demux_box_sphere_vel->get_output_port(0),
+                  command_sender->get_input_port(2));
+  builder.Connect(demux_box_sphere->get_output_port(1),
+                  command_sender->get_input_port(3));
 
   // Add disturbance generator system.
   auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 0.0, 1.0);
