@@ -1,10 +1,12 @@
 #include "examples/example_base.h"
 
 #include <chrono>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <thread>
 #include <utility>
+#include <random>
 
 #include "examples/mpc_controller.h"
 #include "examples/pd_plus_controller.h"
@@ -93,205 +95,226 @@ void TrajOptExample::RunModelPredictiveControl(
   TrajectoryOptimizerSolution<double> initial_solution =
       SolveTrajectoryOptimization(options, trajectory, time_varying_cost);
 
-  drake::log()->info("Press enter to continue with MPC");
-  std::getchar();
+  int loop_count = 0;
+  while (true) {
+    std::cout<<"Staring "<<loop_count<<"th rollout"<<std::endl;
 
-  // Set up the system diagram for the simulator
-  DiagramBuilder<double> builder;
+    // Add random generator.
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dist(5.0, 15.0);
+    double disturbance_period = dist(gen);
+    std::cout<<"disturbance_period: "<<disturbance_period<<std::endl;
+    std::uniform_real_distribution<double> dist_force(10.0, 40.0);
+    double disturbance_force_mag = dist_force(gen);
+    std::cout<<"disturbance_force_mag: "<<disturbance_force_mag<<std::endl;
 
-  // Construct the multibody plant system model
-  MultibodyPlantConfig config;
-  config.time_step = options.sim_time_step;
-  auto [plant, scene_graph] = AddMultibodyPlant(config, &builder);
-  CreatePlantModelForSimulation(&plant);
-  plant.Finalize();
+    drake::log()->info("Press enter to continue with MPC");
+    std::getchar();
 
-  const int nq = plant.num_positions();
-  const int nv = plant.num_velocities();
-  const int nu = plant.num_actuators();
+    // Set up the system diagram for the simulator
+    DiagramBuilder<double> builder;
 
-  // Connect to the Meshcat visualizer
-  AddDefaultVisualization(&builder, meshcat_);
+    // Construct the multibody plant system model
+    MultibodyPlantConfig config;
+    config.time_step = options.sim_time_step;
+    auto [plant, scene_graph] = AddMultibodyPlant(config, &builder);
+    CreatePlantModelForSimulation(&plant);
+    plant.Finalize();
 
-  // Create a system model for the controller
-  DiagramBuilder<double> ctrl_builder;
-  MultibodyPlantConfig ctrl_config;
-  ctrl_config.time_step = options.time_step;
-  auto [ctrl_plant, ctrl_scene_graph] =
-      AddMultibodyPlant(ctrl_config, &ctrl_builder);
-  CreatePlantModel(&ctrl_plant);
-  ctrl_plant.Finalize();
-  auto ctrl_diagram = ctrl_builder.Build();
+    const int nq = plant.num_positions();
+    const int nv = plant.num_velocities();
+    const int nu = plant.num_actuators();
 
-  // Define the optimization problem
-  ProblemDefinition opt_prob;
-  SetProblemDefinition(options, plant, &opt_prob, trajectory, time_varying_cost);
+    // Connect to the Meshcat visualizer
+    AddDefaultVisualization(&builder, meshcat_);
 
-  // Set MPC-specific solver parameters
-  SolverParameters solver_params;
-  SetSolverParameters(options, &solver_params);
-  solver_params.max_iterations = options.mpc_iters;
+    // Create a system model for the controller
+    DiagramBuilder<double> ctrl_builder;
+    MultibodyPlantConfig ctrl_config;
+    ctrl_config.time_step = options.time_step;
+    auto [ctrl_plant, ctrl_scene_graph] =
+        AddMultibodyPlant(ctrl_config, &ctrl_builder);
+    CreatePlantModel(&ctrl_plant);
+    ctrl_plant.Finalize();
+    auto ctrl_diagram = ctrl_builder.Build();
 
-  // Set up the MPC system
-  const double replan_period = 1. / options.controller_frequency;
-  auto controller = builder.AddSystem<ModelPredictiveController>(
-      ctrl_diagram.get(), &ctrl_plant, opt_prob, initial_solution,
-      solver_params, replan_period, whole_trajectory, nominal_update_dt,
-      time_varying_cost);
+    // Define the optimization problem
+    ProblemDefinition opt_prob;
+    SetProblemDefinition(options, plant, &opt_prob, trajectory, time_varying_cost);
 
-  // Create an interpolator to send samples from the optimal trajectory at a
-  // faster rate
-  auto interpolator = builder.AddSystem<Interpolator>(nq, nv, nu);
+    // Set MPC-specific solver parameters
+    SolverParameters solver_params;
+    SetSolverParameters(options, &solver_params);
+    solver_params.max_iterations = options.mpc_iters;
 
-  // Connect the MPC controller to the interpolator
-  // N.B. We place a delay block between the MPC controller and the interpolator
-  // to simulate the fact that the system continues to evolve over time as the
-  // optimizer solves the trajectory optimization problem.
-  mpc::StoredTrajectory placeholder_trajectory;
-  controller->StoreOptimizerSolution(initial_solution, 0.0,
-                                     &placeholder_trajectory);
+    // Set up the MPC system
+    const double replan_period = 1. / options.controller_frequency;
+    auto controller = builder.AddSystem<ModelPredictiveController>(
+        ctrl_diagram.get(), &ctrl_plant, opt_prob, initial_solution,
+        solver_params, replan_period, whole_trajectory, nominal_update_dt,
+        time_varying_cost);
 
-  auto delay = builder.AddSystem<DiscreteTimeDelay>(
-      replan_period, 1, drake::Value(placeholder_trajectory));
-  builder.Connect(controller->get_trajectory_output_port(),
-                  delay->get_input_port());
-  builder.Connect(delay->get_output_port(),
-                  interpolator->get_trajectory_input_port());
+    // Create an interpolator to send samples from the optimal trajectory at a
+    // faster rate
+    auto interpolator = builder.AddSystem<Interpolator>(nq, nv, nu);
 
-  // Connect the interpolator to a low-level PD controller
-  const MatrixXd B = plant.MakeActuationMatrix();
-  auto dummy_context = plant.CreateDefaultContext();
-  MatrixXd N(nq, nv);
-  N = plant.MakeVelocityToQDotMap(*dummy_context);
-  MatrixXd Bq = N * B;
+    // Connect the MPC controller to the interpolator
+    // N.B. We place a delay block between the MPC controller and the interpolator
+    // to simulate the fact that the system continues to evolve over time as the
+    // optimizer solves the trajectory optimization problem.
+    mpc::StoredTrajectory placeholder_trajectory;
+    controller->StoreOptimizerSolution(initial_solution, 0.0,
+                                       &placeholder_trajectory);
 
-  const MatrixXd Kp =
-      (options.Kp.size() == 0)
-          ? MatrixXd::Zero(nu, nq)
-          : static_cast<MatrixXd>(Bq.transpose() * options.Kp.asDiagonal());
-  const MatrixXd Kd =
-      (options.Kd.size() == 0)
-          ? MatrixXd::Zero(nu, nv)
-          : static_cast<MatrixXd>(B.transpose() * options.Kd.asDiagonal());
+    auto delay = builder.AddSystem<DiscreteTimeDelay>(
+        replan_period, 1, drake::Value(placeholder_trajectory));
+    builder.Connect(controller->get_trajectory_output_port(),
+                    delay->get_input_port());
+    builder.Connect(delay->get_output_port(),
+                    interpolator->get_trajectory_input_port());
 
-  auto pd = builder.AddSystem<PdPlusController>(Kp, Kd, options.feed_forward);
-  builder.Connect(interpolator->get_state_output_port(),
-                  pd->get_nominal_state_input_port());
-  builder.Connect(interpolator->get_control_output_port(),
-                  pd->get_nominal_control_input_port());
-  builder.Connect(plant.get_state_output_port(), pd->get_state_input_port());
-  builder.Connect(pd->get_control_output_port(),
-                  plant.get_actuation_input_port());
+    // Connect the interpolator to a low-level PD controller
+    const MatrixXd B = plant.MakeActuationMatrix();
+    auto dummy_context = plant.CreateDefaultContext();
+    MatrixXd N(nq, nv);
+    N = plant.MakeVelocityToQDotMap(*dummy_context);
+    MatrixXd Bq = N * B;
 
-  // Connect the plant's state estimate to the MPC planner
-  builder.Connect(plant.get_state_output_port(),
-                  controller->get_state_input_port());
+    const MatrixXd Kp =
+        (options.Kp.size() == 0)
+            ? MatrixXd::Zero(nu, nq)
+            : static_cast<MatrixXd>(Bq.transpose() * options.Kp.asDiagonal());
+    const MatrixXd Kd =
+        (options.Kd.size() == 0)
+            ? MatrixXd::Zero(nu, nv)
+            : static_cast<MatrixXd>(B.transpose() * options.Kd.asDiagonal());
 
-  // Add Demultiplexer for State/Command Sender.
-  auto demux = builder.AddSystem<Demultiplexer>(nq+nv, nq);
-  builder.Connect(interpolator->get_state_output_port(),
-                  demux->get_input_port());
+    auto pd = builder.AddSystem<PdPlusController>(Kp, Kd, options.feed_forward);
+    builder.Connect(interpolator->get_state_output_port(),
+                    pd->get_nominal_state_input_port());
+    builder.Connect(interpolator->get_control_output_port(),
+                    pd->get_nominal_control_input_port());
+    builder.Connect(plant.get_state_output_port(), pd->get_state_input_port());
+    builder.Connect(pd->get_control_output_port(),
+                    plant.get_actuation_input_port());
 
-  // Add Demultiplexer for Command Sender.
-  const std::vector<int> output_port_sizes = {2, 3};
-  auto demux_box_sphere = builder.AddSystem<Demultiplexer>(output_port_sizes);
+    // Connect the plant's state estimate to the MPC planner
+    builder.Connect(plant.get_state_output_port(),
+                    controller->get_state_input_port());
 
-  // Add Demultiplexer for State/Command Sender.
-  // input desired_velocity of sphere and box.
-  // output desired_velocity of sphere.
-  auto demux_box_sphere_vel = builder.AddSystem<Demultiplexer>(output_port_sizes);
-  builder.Connect(demux->get_output_port(1),
-                  demux_box_sphere_vel->get_input_port());
+    // Add Demultiplexer for State/Command Sender.
+    auto demux = builder.AddSystem<Demultiplexer>(nq+nv, nq);
+    builder.Connect(interpolator->get_state_output_port(),
+                    demux->get_input_port());
 
-  // Add lcm state publisher.
-  const std::string channel_x = "planar_pushing_x";
-  const std::string channel_u = "planar_pushing_u";
-  auto lcm = builder.AddSystem<drake::systems::lcm::LcmInterfaceSystem>();
-  auto state_pub = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_x>(
-      channel_x, lcm));
-  auto state_sender = builder.AddSystem<PlanarPushingStateSender>();
-  builder.Connect(state_sender->get_output_port(0),
-                  state_pub->get_input_port());
-  builder.Connect(plant.get_state_output_port(),
-      state_sender->get_input_port(0));
-  builder.Connect(demux->get_output_port(0),
-      state_sender->get_input_port(1));
-  builder.Connect(demux_box_sphere_vel->get_output_port(0),
-      state_sender->get_input_port(2));
+    // Add Demultiplexer for Command Sender.
+    const std::vector<int> output_port_sizes = {2, 3};
+    auto demux_box_sphere = builder.AddSystem<Demultiplexer>(output_port_sizes);
 
-  // Add lcm command publisher.
-  auto command_pub = builder.AddSystem(
-      drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_u>(
-        channel_u, lcm));
-  auto command_sender = builder.AddSystem<PlanarPushingCommandSender>();
-  builder.Connect(command_sender->get_output_port(),
-                  command_pub->get_input_port());
-  builder.Connect(interpolator->get_control_output_port(),
-                  command_sender->get_input_port(0));
-  builder.Connect(demux->get_output_port(0),
-                  demux_box_sphere->get_input_port());
-  builder.Connect(demux_box_sphere->get_output_port(0),
-                  command_sender->get_input_port(1));
-  builder.Connect(demux_box_sphere_vel->get_output_port(0),
-                  command_sender->get_input_port(2));
-  builder.Connect(demux_box_sphere->get_output_port(1),
-                  command_sender->get_input_port(3));
+    // Add Demultiplexer for State/Command Sender.
+    // input desired_velocity of sphere and box.
+    // output desired_velocity of sphere.
+    auto demux_box_sphere_vel = builder.AddSystem<Demultiplexer>(output_port_sizes);
+    builder.Connect(demux->get_output_port(1),
+                    demux_box_sphere_vel->get_input_port());
 
-  // Add disturbance generator system.
-  auto disturbance = builder.AddSystem<DisturbanceGenerator>(&plant, 0.0, 1.0);
-  builder.Connect(disturbance->get_output_port(),
-      plant.get_applied_spatial_force_input_port());
+    // Add lcm state publisher.
+    const std::string channel_x = "planar_pushing_x";
+    const std::string channel_u = "planar_pushing_u";
+    auto lcm = builder.AddSystem<drake::systems::lcm::LcmInterfaceSystem>();
+    auto state_pub = builder.AddSystem(
+        drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_x>(
+        channel_x, lcm));
+    auto state_sender = builder.AddSystem<PlanarPushingStateSender>();
+    builder.Connect(state_sender->get_output_port(0),
+                    state_pub->get_input_port());
+    builder.Connect(plant.get_state_output_port(),
+        state_sender->get_input_port(0));
+    builder.Connect(demux->get_output_port(0),
+        state_sender->get_input_port(1));
+    builder.Connect(demux_box_sphere_vel->get_output_port(0),
+        state_sender->get_input_port(2));
 
-  // Compile the diagram
-  auto diagram = builder.Build();
+    // Add lcm command publisher.
+    auto command_pub = builder.AddSystem(
+        drake::systems::lcm::LcmPublisherSystem::Make<lcmt_planar_pushing_u>(
+          channel_u, lcm));
+    auto command_sender = builder.AddSystem<PlanarPushingCommandSender>();
+    builder.Connect(command_sender->get_output_port(),
+                    command_pub->get_input_port());
+    builder.Connect(interpolator->get_control_output_port(),
+                    command_sender->get_input_port(0));
+    builder.Connect(demux->get_output_port(0),
+                    demux_box_sphere->get_input_port());
+    builder.Connect(demux_box_sphere->get_output_port(0),
+                    command_sender->get_input_port(1));
+    builder.Connect(demux_box_sphere_vel->get_output_port(0),
+                    command_sender->get_input_port(2));
+    builder.Connect(demux_box_sphere->get_output_port(1),
+                    command_sender->get_input_port(3));
 
-  // Save diagram.
-  std::ofstream diagram_file;
-  diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
-  diagram_file<<diagram->GetGraphvizString();
-  diagram_file.close();
+    // Add disturbance generator system.
+    auto disturbance = builder.AddSystem<DisturbanceGenerator>(
+        &plant, disturbance_force_mag, disturbance_period);
+    builder.Connect(disturbance->get_output_port(),
+        plant.get_applied_spatial_force_input_port());
 
-  std::unique_ptr<drake::systems::Context<double>> diagram_context =
-      diagram->CreateDefaultContext();
-  drake::systems::Context<double>& plant_context =
-      diagram->GetMutableSubsystemContext(plant, diagram_context.get());
+    // Compile the diagram
+    auto diagram = builder.Build();
 
-  // Set up the simulation
-  //plant.SetPositions(&plant_context, options.q_init);
-  std::cout<<"Setting object pose from yaml file.";
-  std::cout<<"\tobs: "<<options.q_init[2]<<", "<<options.q_init[3]<<", ";
-  std::cout<<options.q_init[4]<<std::endl;
-  auto mixed_q_init = trajectory[0];
-  mixed_q_init[2] = options.q_init[2];
-  mixed_q_init[3] = options.q_init[3];
-  mixed_q_init[4] = options.q_init[4];
-  plant.SetPositions(&plant_context, mixed_q_init);
-  plant.SetVelocities(&plant_context, options.v_init);
-  drake::systems::Simulator<double> simulator(*diagram,
-                                              std::move(diagram_context));
-  simulator.set_target_realtime_rate(options.sim_realtime_rate);
-  simulator.Initialize();
+    // Save diagram.
+    std::ofstream diagram_file;
+    diagram_file.open("/home/manabu-nishiura/idto/simple_maze_diagram.dot");
+    diagram_file<<diagram->GetGraphvizString();
+    diagram_file.close();
 
-  // Run the simulation, recording the result for later playback in MeshCat
-  meshcat_->StartRecording();
-  simulator.AdvanceTo(options.sim_time);
-  meshcat_->StopRecording();
-  meshcat_->PublishRecording();
+    std::unique_ptr<drake::systems::Context<double>> diagram_context =
+        diagram->CreateDefaultContext();
+    drake::systems::Context<double>& plant_context =
+        diagram->GetMutableSubsystemContext(plant, diagram_context.get());
 
-  std::string message;
-  std::cout<<"Waiting meshcat to publish recording.";
-  std::getline(std::cin, message);
+    // Set up the simulation
+    //plant.SetPositions(&plant_context, options.q_init);
+    std::cout<<"Setting object pose from yaml file.";
+    std::cout<<"\tobs: "<<options.q_init[2]<<", "<<options.q_init[3]<<", ";
+    std::cout<<options.q_init[4]<<std::endl;
+    auto mixed_q_init = trajectory[0];
+    mixed_q_init[2] = options.q_init[2];
+    mixed_q_init[3] = options.q_init[3];
+    mixed_q_init[4] = options.q_init[4];
+    plant.SetPositions(&plant_context, mixed_q_init);
+    plant.SetVelocities(&plant_context, options.v_init);
+    drake::systems::Simulator<double> simulator(*diagram,
+                                                std::move(diagram_context));
+    simulator.set_target_realtime_rate(options.sim_realtime_rate);
+    simulator.Initialize();
 
-  if (options.save_mpc_result_as_static_html) {
-    std::ofstream data_file;
-    data_file.open(options.static_html_filename);
-    data_file << meshcat_->StaticHtml();
-    data_file.close();
+    // Run the simulation, recording the result for later playback in MeshCat
+    meshcat_->StartRecording();
+    simulator.AdvanceTo(options.sim_time);
+    meshcat_->StopRecording();
+    meshcat_->PublishRecording();
+
+    std::string message;
+    std::cout<<"Waiting meshcat to publish recording.";
+    std::getline(std::cin, message);
+
+    if (options.save_mpc_result_as_static_html) {
+      std::ofstream data_file;
+      data_file.open(options.static_html_filename);
+      data_file << meshcat_->StaticHtml();
+      data_file.close();
+    }
+
+    // Print profiling info
+    std::cout << TableOfAverages() << std::endl;
+
+    std::cout<<loop_count<<"th rollout finished."<<std::endl;
+    drake::log()->info("Press enter to start next loop");
+    std::getchar();
+    loop_count++;
   }
-
-  // Print profiling info
-  std::cout << TableOfAverages() << std::endl;
 }
 
 TrajectoryOptimizerSolution<double> TrajOptExample::SolveTrajectoryOptimization(
