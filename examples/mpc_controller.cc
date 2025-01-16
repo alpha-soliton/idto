@@ -79,9 +79,10 @@ EventStatus ModelPredictiveController::UpdateAbstractState(
   // Solve the trajectory optimization problem from the new initial condition
   optimizer_.ResetInitialConditions(q0, v0);
 
+  int current_index = num_steps_ + traj_index;
+  std::cout<<"Current nominal index: "<<current_index<<"/"<<whole_trajectory_length_<<std::endl;
   if (traj_index < (whole_trajectory_length_ - num_steps_) and \
       start_time - last_nominal_update_time_ >= nominal_update_period_) {
-    int current_index = num_steps_ + traj_index;
     std::cout<<"Updating nominal states. Index: "<<current_index<<"/"<<whole_trajectory_length_<<std::endl;
     optimizer_.UpdateNominalStates(whole_trajectory_[num_steps_ + traj_index]);
     traj_index += 1;
