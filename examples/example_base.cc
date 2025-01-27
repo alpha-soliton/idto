@@ -16,6 +16,7 @@
 #include <drake/examples/planar_pushing/planar_pushing_lcm.h>
 #include <drake/lcmt_planar_pushing_u.hpp>
 #include <drake/lcmt_planar_pushing_x.hpp>
+#include <drake/multibody/meshcat/spatial_force_visualizer.h>
 #include <drake/systems/lcm/lcm_interface_system.h>
 #include <drake/systems/lcm/lcm_publisher_system.h>
 #include <drake/systems/lcm/lcm_subscriber_system.h>
@@ -33,6 +34,7 @@ using drake::lcmt_planar_pushing_u;
 using drake::math::RigidTransformd;
 using drake::multibody::Body;
 using drake::multibody::BodyIndex;
+using drake::multibody::meshcat::SpatialForceVisualizerd;
 using drake::systems::Demultiplexer;
 using drake::systems::DiscreteTimeDelay;
 using drake::visualization::AddDefaultVisualization;
@@ -257,8 +259,20 @@ void TrajOptExample::RunModelPredictiveControl(
     // Add disturbance generator system.
     auto disturbance = builder.AddSystem<DisturbanceGenerator>(
         &plant, disturbance_force_mag, disturbance_period);
-    builder.Connect(disturbance->get_output_port(),
+    builder.Connect(disturbance->get_output_port(0),
         plant.get_applied_spatial_force_input_port());
+
+    builder.Connect(
+      plant.get_body_poses_output_port(),
+      disturbance->GetInputPort("body_poses"));
+
+    auto spatial_force_visualizer = builder.AddSystem<SpatialForceVisualizerd>(meshcat_);
+    builder.Connect(
+        disturbance->get_output_port(0),
+        spatial_force_visualizer->GetInputPort("spatial_force"));
+    builder.Connect(
+        disturbance->get_output_port(1),
+        spatial_force_visualizer->GetInputPort("target_transform"));
 
     // Compile the diagram
     auto diagram = builder.Build();

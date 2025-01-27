@@ -57,6 +57,7 @@ idto_cc_shared_library(
         "//optimizer:problem_definition",
         "//optimizer:trajectory_optimizer",
         "@drake//examples/planar_pushing:planar_pushing_lcm",
+        "@drake//multibody/meshcat:spatial_force_visualizer",
         "@drake//multibody/parsing",
         "@drake//multibody/plant",
         "@drake//systems/analysis:simulator",

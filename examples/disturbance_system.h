@@ -1,5 +1,6 @@
 #include <random>
 
+#include <drake/math/rigid_transform.h>
 #include <drake/multibody/plant/externally_applied_spatial_force.h>
 #include <drake/multibody/plant/multibody_plant.h>
 #include <drake/multibody/math/spatial_force.h>
@@ -15,6 +16,7 @@ namespace examples {
 using Eigen::VectorXd;
 using Eigen::Vector3;
 
+using drake::math::RigidTransform;
 using drake::multibody::ExternallyAppliedSpatialForce;
 using drake::multibody::MultibodyPlant;
 using drake::multibody::SpatialForce;
@@ -42,6 +44,9 @@ class DisturbanceGenerator : public LeafSystem<double> {
   void CalcDisturbance(const Context<double>& context,
       std::vector<ExternallyAppliedSpatialForce<double>>* output) const;
 
+  void OutputTargetTransform(const Context<double>& context,
+      RigidTransform<double>* output) const;
+
   EventStatus PerStep(const Context<double>& context,
       DiscreteValues<double>* discrete_state) const;
   const MultibodyPlant<double>* plant_{nullptr};
@@ -49,6 +54,10 @@ class DisturbanceGenerator : public LeafSystem<double> {
   const double period_{0.0};
   mutable std::mt19937 gen;
   mutable std::uniform_real_distribution<> dis;
+  drake::multibody::BodyIndex box_body_index_{};
+
+  // 入力ポートのインデックスを保持
+  drake::systems::InputPortIndex body_poses_port_index_;
 };
 
 }

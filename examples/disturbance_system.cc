@@ -9,6 +9,7 @@ namespace examples {
 using Eigen::VectorXd;
 using Eigen::Vector3;
 
+using drake::math::RigidTransform;
 using drake::multibody::ExternallyAppliedSpatialForce;
 using drake::multibody::MultibodyPlant;
 using drake::multibody::SpatialForce;
@@ -25,9 +26,18 @@ DisturbanceGenerator::DisturbanceGenerator(const MultibodyPlant<double>* plant,
                                    const double force_mag, const double period)
     : plant_(plant), force_mag_(force_mag), period_(period),
       gen(std::random_device{}()), dis(-force_mag, force_mag) {
+  box_body_index_ = plant->GetBodyByName("box").index();
   this->DeclareAbstractOutputPort(
       "spatial_forces",
       &DisturbanceGenerator::CalcDisturbance);
+  body_poses_port_index_ = this->DeclareAbstractInputPort(
+      "body_poses",
+      // ポート型 = std::vector<RigidTransform<double>>
+      drake::Value<std::vector<RigidTransform<double>>>{}
+  ).get_index();
+  this->DeclareAbstractOutputPort(
+      "target_transform",
+      &DisturbanceGenerator::OutputTargetTransform);
   this->DeclarePeriodicDiscreteUpdateEvent(period_, 0.0,
       &DisturbanceGenerator::PerStep);
   this->DeclareDiscreteState(2); // fx, fy
@@ -66,6 +76,25 @@ void DisturbanceGenerator::CalcDisturbance(const Context<double>& context,
     random_f(0) = 0.0;
     random_f(1) = 0.0;
   }
+}
+
+void DisturbanceGenerator::OutputTargetTransform(const Context<double>& context,
+    RigidTransform<double>* output) const {
+
+  const auto& poses_value =
+      this->get_input_port(body_poses_port_index_)
+          .template Eval<std::vector<RigidTransform<double>>>(context);
+
+  // box ボディのワールド変換
+  const RigidTransform<double>& X_WBox = poses_value[box_body_index_];
+
+  /*
+  // Get box transform.
+  const RigidBody<double>* box_body_x = &plant_->GetBodyByName("box");
+  const RigidTransform<double>& box_x_X_WB = box_body_x->EvalPoseInWorld(context);
+  (*output) = box_x_X_WB;
+  */
+  (*output) = X_WBox;
 }
 
 EventStatus DisturbanceGenerator::PerStep(const Context<double>& context,
