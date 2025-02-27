@@ -21,6 +21,17 @@ DEFINE_bool(time_varying_cost, false,
             "and responsive optimization. If set to false, the optimization "
             "assumes constant costs throughout the trajectory, leading to a "
             "usual optimization approach.");
+DEFINE_bool(add_disturbance, false,
+            "If this args is true, DisturbanceGenerator system adds disturbance"
+            "to the box.");
+DEFINE_double(disturbance_force_mag_lower_limit, 15.0,
+            "Lower limit of the magnitude of disturbance force.");
+DEFINE_double(disturbance_force_mag_upper_limit, 20.0,
+            "Upper limit of the magnitude of disturbance force.");
+DEFINE_double(disturbance_interval, 5.0,
+            "Interval of the disturbance in sec.");
+DEFINE_double(disturbance_start_offset, 0.0,
+            "Offset to start adding disturbance in sec.");
 
 
 struct SavedTrajectory {
@@ -164,7 +175,9 @@ int main(int argc, char* argv[]) {
   idto::examples::hopper::SimpleMazeExample example;
   example.RunExample("idto/examples/simple_maze/simple_maze_gqdp.yaml",
       initial_trajectory, whole_trajectory, FLAGS_nominal_update_dt,
-      FLAGS_test, FLAGS_time_varying_cost);
+      FLAGS_test, FLAGS_time_varying_cost, FLAGS_add_disturbance,
+      FLAGS_disturbance_force_mag_lower_limit, FLAGS_disturbance_force_mag_upper_limit,
+      FLAGS_disturbance_interval, FLAGS_disturbance_start_offset);
 
   return 0;
 }

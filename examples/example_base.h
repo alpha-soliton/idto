@@ -74,7 +74,12 @@ class TrajOptExample {
                   const std::vector<VectorXd> whole_trajectory,
                   const double nominal_update_dt,
                   const bool test = false,
-                  const bool time_varying_cost = false) const;
+                  const bool time_varying_cost = false,
+                  const bool add_disturbance = false,
+                  const double disturbance_force_mag_lower_limit = 0.0,
+                  const double disturbance_force_mag_upper_limit = 0.0,
+                  const double disturbance_interval=0.0,
+                  const double disturbance_start_offset=0.0) const;
 
   /**
    * Solve the optimization problem, as defined by the parameters in the given
@@ -102,7 +107,12 @@ class TrajOptExample {
                                  const std::vector<VectorXd> trajectory,
                                  const std::vector<VectorXd> whole_trajectory,
                                  const double nominal_update_dt,
-                                 const bool time_varying_cost) const;
+                                 const bool time_varying_cost,
+                                 const bool add_disturbance,
+                                 const double disturbance_force_mag_lower_limit,
+                                 const double disturbance_force_mag_upper_limit,
+                                 const double disturbance_interval,
+                                 const double disturbance_start_offset) const;
 
   /**
    * Set an optimization problem from example options which were loaded from

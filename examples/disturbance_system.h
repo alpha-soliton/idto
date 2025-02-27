@@ -32,10 +32,17 @@ using drake::systems::TriggerType;
 class DisturbanceGenerator : public LeafSystem<double> {
  public:
   explicit DisturbanceGenerator(const MultibodyPlant<double>* plant,
-      const double force_mag, const double period);
+      const double force_mag_lower_limit, const double force_mag_upper_limit,
+      const double period, const double disturbance_start_offset);
 
   double generate_random_force() const {
-    return dis(gen);
+    int sign = sign_dist(gen);
+    if (sign == 0) {
+      return -dis(gen);
+    }
+    else {
+      return dis(gen);
+    }
   }
 
   mutable double last_force_update{0.0};
@@ -50,10 +57,13 @@ class DisturbanceGenerator : public LeafSystem<double> {
   EventStatus PerStep(const Context<double>& context,
       DiscreteValues<double>* discrete_state) const;
   const MultibodyPlant<double>* plant_{nullptr};
-  const double force_mag_;
+  const double force_mag_lower_limit_;
+  const double force_mag_upper_limit_;
   const double period_{0.0};
+  const double disturbance_start_offset_{0.0};
   mutable std::mt19937 gen;
   mutable std::uniform_real_distribution<> dis;
+  mutable std::uniform_int_distribution<int> sign_dist;
   drake::multibody::BodyIndex box_body_index_{};
 
   // 入力ポートのインデックスを保持

@@ -23,9 +23,16 @@ using drake::systems::PublishEvent;
 using drake::systems::TriggerType;
 
 DisturbanceGenerator::DisturbanceGenerator(const MultibodyPlant<double>* plant,
-                                   const double force_mag, const double period)
-    : plant_(plant), force_mag_(force_mag), period_(period),
-      gen(std::random_device{}()), dis(-force_mag, force_mag) {
+                                   const double force_mag_lower_limit,
+                                   const double force_mag_upper_limit,
+                                   const double period,
+                                   const double disturbance_start_offset)
+    : plant_(plant), force_mag_lower_limit_(force_mag_lower_limit),
+      force_mag_upper_limit_(force_mag_upper_limit), period_(period),
+      disturbance_start_offset_(disturbance_start_offset),
+      gen(std::random_device{}()),
+      dis(force_mag_lower_limit, force_mag_upper_limit),
+      sign_dist(0, 1) {
   box_body_index_ = plant->GetBodyByName("box").index();
   this->DeclareAbstractOutputPort(
       "spatial_forces",
@@ -38,7 +45,7 @@ DisturbanceGenerator::DisturbanceGenerator(const MultibodyPlant<double>* plant,
   this->DeclareAbstractOutputPort(
       "target_transform",
       &DisturbanceGenerator::OutputTargetTransform);
-  this->DeclarePeriodicDiscreteUpdateEvent(period_, 0.0,
+  this->DeclarePeriodicDiscreteUpdateEvent(period_, disturbance_start_offset_,
       &DisturbanceGenerator::PerStep);
   this->DeclareDiscreteState(2); // fx, fy
 }
@@ -88,12 +95,6 @@ void DisturbanceGenerator::OutputTargetTransform(const Context<double>& context,
   // box ボディのワールド変換
   const RigidTransform<double>& X_WBox = poses_value[box_body_index_];
 
-  /*
-  // Get box transform.
-  const RigidBody<double>* box_body_x = &plant_->GetBodyByName("box");
-  const RigidTransform<double>& box_x_X_WB = box_body_x->EvalPoseInWorld(context);
-  (*output) = box_x_X_WB;
-  */
   (*output) = X_WBox;
 }
 

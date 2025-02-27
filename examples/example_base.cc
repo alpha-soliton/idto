@@ -49,7 +49,12 @@ void TrajOptExample::RunExample(const std::string options_file,
                                 const std::vector<VectorXd> whole_trajectory,
                                 const double nominal_update_dt,
                                 const bool test,
-                                const bool time_varying_cost) const {
+                                const bool time_varying_cost,
+                                const bool add_disturbance,
+                                const double disturbance_force_mag_lower_limit,
+                                const double disturbance_force_mag_upper_limit,
+                                const double disturbance_interval,
+                                const double disturbance_start_offset) const {
   // Load parameters from file
   TrajOptExampleParams default_options;
   /*
@@ -77,7 +82,9 @@ void TrajOptExample::RunExample(const std::string options_file,
   if (options.mpc) {
     // Run a simulation that uses the optimizer as a model predictive controller
     RunModelPredictiveControl(options, trajectory, whole_trajectory,
-        nominal_update_dt, time_varying_cost);
+        nominal_update_dt, time_varying_cost, add_disturbance,
+        disturbance_force_mag_lower_limit, disturbance_force_mag_upper_limit,
+        disturbance_interval, disturbance_start_offset);
   } else {
     // Solve a single instance of the optimization problem and play back the
     // result on the visualizer
@@ -90,7 +97,12 @@ void TrajOptExample::RunModelPredictiveControl(
     const std::vector<VectorXd> trajectory,
     const std::vector<VectorXd> whole_trajectory,
     const double nominal_update_dt,
-    const bool time_varying_cost) const {
+    const bool time_varying_cost,
+    const bool add_disturbance,
+    const double disturbance_force_mag_lower_limit,
+    const double disturbance_force_mag_upper_limit,
+    const double disturbance_interval,
+    const double disturbance_start_offset) const {
   // Perform a full solve to convergence (as defined by YAML parameters) to
   // warm-start the first MPC iteration. Subsequent MPC iterations will be
   // warm-started based on the prior MPC iteration.
@@ -98,21 +110,16 @@ void TrajOptExample::RunModelPredictiveControl(
       SolveTrajectoryOptimization(options, trajectory, time_varying_cost);
 
   int loop_count = 0;
-  while (true) {
-    std::cout<<"Staring "<<loop_count<<"th rollout"<<std::endl;
+  int max_loop_count = 2000;
+  while (loop_count <= max_loop_count) {
+    std::cout<<"Preparing "<<loop_count<<"th rollout"<<std::endl;
 
-    // Add random generator.
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dist(5.0, 15.0);
-    double disturbance_period = dist(gen);
-    std::cout<<"disturbance_period: "<<disturbance_period<<std::endl;
-    std::uniform_real_distribution<double> dist_force(10.0, 40.0);
-    double disturbance_force_mag = dist_force(gen);
-    std::cout<<"disturbance_force_mag: "<<disturbance_force_mag<<std::endl;
+    std::cout << "Wait for 0.5 second..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "0.5 second has passed!" << std::endl;
 
-    drake::log()->info("Press enter to continue with MPC");
-    std::getchar();
+    //drake::log()->info("Press enter to continue with MPC");
+    //std::getchar();
 
     // Set up the system diagram for the simulator
     DiagramBuilder<double> builder;
@@ -256,26 +263,40 @@ void TrajOptExample::RunModelPredictiveControl(
     builder.Connect(demux_box_sphere->get_output_port(1),
                     command_sender->get_input_port(3));
 
-    // Add disturbance generator system.
-    auto disturbance = builder.AddSystem<DisturbanceGenerator>(
-        &plant, disturbance_force_mag, disturbance_period);
-    builder.Connect(disturbance->get_output_port(0),
-        plant.get_applied_spatial_force_input_port());
+    // Add random generator.
+    if (add_disturbance) {
+      std::cout<<"disturbance interval: "<<disturbance_interval<<std::endl;
+      std::cout<<"disturbance_lower_limit: "<<disturbance_force_mag_lower_limit<<std::endl;
+      std::cout<<"disturbance_upper_limit: "<<disturbance_force_mag_upper_limit<<std::endl;
 
-    builder.Connect(
-      plant.get_body_poses_output_port(),
-      disturbance->GetInputPort("body_poses"));
+      // Add disturbance generator system.
+      auto disturbance = builder.AddSystem<DisturbanceGenerator>(
+          &plant, disturbance_force_mag_lower_limit,
+          disturbance_force_mag_upper_limit, disturbance_interval,
+          disturbance_start_offset);
+      builder.Connect(disturbance->get_output_port(0),
+          plant.get_applied_spatial_force_input_port());
 
-    auto spatial_force_visualizer = builder.AddSystem<SpatialForceVisualizerd>(meshcat_);
-    builder.Connect(
-        disturbance->get_output_port(0),
-        spatial_force_visualizer->GetInputPort("spatial_force"));
-    builder.Connect(
-        disturbance->get_output_port(1),
-        spatial_force_visualizer->GetInputPort("target_transform"));
+      builder.Connect(
+        plant.get_body_poses_output_port(),
+        disturbance->GetInputPort("body_poses"));
+
+      auto spatial_force_visualizer = builder.AddSystem<SpatialForceVisualizerd>(meshcat_);
+      builder.Connect(
+          disturbance->get_output_port(0),
+          spatial_force_visualizer->GetInputPort("spatial_force"));
+      builder.Connect(
+          disturbance->get_output_port(1),
+          spatial_force_visualizer->GetInputPort("target_transform"));
+    }
 
     // Compile the diagram
     auto diagram = builder.Build();
+
+    std::cout<<"DiagramBuilder successfully built the diagram!"<<std::endl;
+    std::cout << "Wait for 0.5 second..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::cout << "0.5 second has passed!" << std::endl;
 
     // Save diagram.
     std::ofstream diagram_file;
@@ -312,7 +333,10 @@ void TrajOptExample::RunModelPredictiveControl(
 
     std::string message;
     std::cout<<"Waiting meshcat to publish recording.";
-    std::getline(std::cin, message);
+    std::cout << "Waiting for 1 second..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "1 second has passed!" << std::endl;
+    //std::getline(std::cin, message);
 
     if (options.save_mpc_result_as_static_html) {
       std::ofstream data_file;
@@ -325,8 +349,11 @@ void TrajOptExample::RunModelPredictiveControl(
     std::cout << TableOfAverages() << std::endl;
 
     std::cout<<loop_count<<"th rollout finished."<<std::endl;
-    drake::log()->info("Press enter to start next loop");
-    std::getchar();
+    std::cout << "Wait for 1 second..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << "1 second has passed!" << std::endl;
+    //drake::log()->info("Press enter to start next loop");
+    //std::getchar();
     loop_count++;
   }
 }
